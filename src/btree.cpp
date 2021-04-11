@@ -33,6 +33,94 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 		const Datatype attrType)
 {
     // Add your code below. Please do not remove this line.
+
+    // TODO written in Java style, not initialization list (maybe ok)
+
+    bufMgr = bufMgrIn;
+    this->attrByteOffset = attrByteOffset;
+    attributeType = INTEGER; // attrType parameter ignored for this assignment
+    leafOccupancy = 0;
+    nodeOccupancy = 0;
+
+    // indexName is the name of the index file
+    std::ostringstream idxStr;
+    idxStr << relationName << '.' << attrByteOffset;
+    std::string indexName = idxStr.str();
+
+    // assign pages numbers in file
+    // TODO verify if headerPageNum and rootPageNum end up getting 0 and 1 from allocPage
+    headerPageNum = 0;
+    rootPageNum = 1;
+
+    // assign file, create if needed
+    file = new BlobFile(indexName, !File::exists(indexName));
+
+    // if file has already been initialized
+    if (File::exists(indexName)) {
+        // load fields from file header page
+        // this assumes the file header page is at pageid 0, as noted above
+        Page* headerPage;
+        bufMgr->readPage(file, headerPageNum, headerPage);
+        IndexMetaInfo* meta = (IndexMetaInfo*) headerPage; // cast type
+        attributeType = meta->attrType;
+        rootPageNum = meta->rootPageNo;
+
+        // no further action
+    } else {
+        // need to init metadata and root pages in file
+        // assumption of only integer keys is made
+	    Page* headerPage;
+        Page* rootPage;
+        bufMgr->allocPage(file, headerPageNum, headerPage);
+        bufMgr->allocPage(file, rootPageNum, rootPage);
+
+        // init metadata page
+        IndexMetaInfo* meta = (IndexMetaInfo*) headerPage; // cast type
+        strcpy(meta->relationName, relationName.c_str()); // TODO unsafe string copy
+        meta->attrByteOffset = attrByteOffset;
+        meta->attrType = attrType;
+        meta->rootPageNo = rootPageNum;
+    
+        // init root page? 
+        NonLeafNodeInt* root = (NonLeafNodeInt*) rootPage; // cast type
+        root->level = 1; // usage - 1 if immediately above the leaves, else 0
+        root->length = 0;
+        // no leaves - insertEntry will handle this initial case
+
+        // insert entries for every tuple in relation
+        FileScan fs(relationName, bufMgr);
+        try {
+            while(true) {
+                RecordId rid;
+                fs.scanNext(rid);
+                std::string record = fs.getRecord();
+                void* key = &record[attrByteOffset]; // this will compile but is incorrect
+                insertEntry(key, rid);
+            }
+        }
+        catch(EndOfFileException &e) {
+        }
+
+        // TODO maybe it's okay to leave these pinned here, and unpin them in destructor
+        bufMgr->unPinPage(file, headerPageNum, true);
+        bufMgr->unPinPage(file, rootPageNum, true);
+
+    }
+
+    // init fields specific to scanning
+    scanExecuting = false;
+    nextEntry = -1;
+    currentPageNum = -1;
+    currentPageData = NULL;
+    lowValInt = -1;
+    highValInt = -1;
+    lowOp = GT;
+    highOp = LT;
+    
+    // scanning only supports int - fields for double/string not used
+
+    // return value
+    outIndexName = indexName;
 }
 
 
@@ -43,6 +131,13 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 BTreeIndex::~BTreeIndex()
 {
     // Add your code below. Please do not remove this line.
+
+    if (scanExecuting) {
+        endScan();
+    }
+    // TODO catch exceptions from flush
+    bufMgr->flushFile(file);
+    delete file;
 }
 
 // -----------------------------------------------------------------------------
@@ -52,6 +147,46 @@ BTreeIndex::~BTreeIndex()
 void BTreeIndex::insertEntry(const void *key, const RecordId rid) 
 {
     // Add your code below. Please do not remove this line.
+
+    int my_key = *key;
+
+    // retrieve root
+    Page* rootPage;
+    bufMgr->readPage(file, rootPageNum, rootPage);
+    NonLeafNodeInt* root = (NonLeafNodeInt*) rootPage; // cast type
+
+    if (root->length == 0) {
+        // initial case - init two leaves, one left & one right of the key
+        // put the starting key,rid pair in properly
+        bufMgr->unPinPage(file, rootPageNum, true);
+    } else {
+        // general case
+        // find leaf page L where key belongs
+        NonLeafNodeInt* curr = root;
+        PageId currPageNo = rootPageNum;
+        while (curr->level != 1) {
+            for (int i=0; i<curr->length; ++i) {
+               if (my_key < curr->keyArray[i]) {
+                   // go to next non-leaf node
+                   PageId nextPageNo = curr->pageNoArray[i];
+                   bufMgf->readPage(file, nextPageNo, (Page*)curr);
+                   bufMgr->unPinPage(file, currPageNo, false);
+                   currPageNo = nextPageNo;
+               } 
+            }
+        }
+        // at this point, curr and currPageNo refer to the leaf node in question
+        // this leaf node pointer might be NULL..? depending on initial case. if so, init new?
+        LeafNodeInt* leaf = (LeafNodeInt*)curr;// cast type
+
+        // insert key,rid pair in L
+
+        // if not enough space in L: split, do not redistribute entries
+
+        // iterate: propagate up the middle key and split if needed
+    }
+
+
 }
 
 // -----------------------------------------------------------------------------
