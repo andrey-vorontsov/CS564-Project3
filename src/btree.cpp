@@ -39,8 +39,8 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
     bufMgr = bufMgrIn;
     this->attrByteOffset = attrByteOffset;
     attributeType = INTEGER; // attrType parameter ignored for this assignment
-    leafOccupancy = 0;
-    nodeOccupancy = 0;
+    leafOccupancy = INTARRAYLEAFSIZE;
+    nodeOccupancy = INTARRAYNONLEAFSIZE;
 
     // indexName is the name of the index file
     std::ostringstream idxStr;
@@ -82,8 +82,8 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         meta->rootPageNo = rootPageNum;
     
         // init root page? 
-        NonLeafNodeInt* root = (NonLeafNodeInt*) rootPage; // cast type
-        root->level = 1; // usage - 1 if immediately above the leaves, else 0
+        LeafNodeInt* root = (LeafNodeInt*) rootPage; // cast type
+        root->leaf = true; // usage - 1 if immediately above the leaves, else 0
         root->length = 0;
         // no leaves - insertEntry will handle this initial case
 
@@ -164,7 +164,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
         // find leaf page L where key belongs
         NonLeafNodeInt* curr = root;
         PageId currPageNo = rootPageNum;
-        while (curr->level != 1) {
+        while (!curr->leaf) {
             for (int i=0; i<curr->length; ++i) {
                if (my_key < curr->keyArray[i]) {
                    // go to next non-leaf node
