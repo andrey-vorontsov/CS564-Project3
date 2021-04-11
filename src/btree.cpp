@@ -192,12 +192,22 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
     }
     // at this point, leafPage (a Page*), leaf (a LeafNodeInt*), and leafPageNo (a PageId) refer to the leaf node in question
 
-    // insert key,rid pair in L
+    // try to insert key,rid pair in L
+    if (leaf->length < leafOccupancy) {
+        leaf->keyArray[leaf->length] = my_key;
+        leaf->ridArray[leaf->length] = rid;
+        leaf->length += 1;
+    }
+    else {
+        // if not enough space in L: split, do not redistribute entries
 
-    // if not enough space in L: split, do not redistribute entries
+        // iterate: propagate up the middle key and split if needed
 
-    // iterate: propagate up the middle key and split if needed
+		// TODO whoops... need to keep the list of ancestor pages saved
+        // so unpinning them will have to wait?
+        // alternatively could add and maintain parent pointers
 
+    }
 
 }
 
