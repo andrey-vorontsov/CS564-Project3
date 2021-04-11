@@ -133,8 +133,8 @@ struct IndexMetaInfo{
 /*
 Each node is a page, so once we read the page in we just cast the pointer to the page to this struct and use it to access the parts
 These structures basically are the format in which the information is stored in the pages for the index file depending on what kind of 
-node they are. The level memeber of each non leaf structure seen below is set to 1 if the nodes 
-at this level are just above the leaf nodes. Otherwise set to 0.
+node they are. The leaf member is always false for non-leaf nodes, always true for leaf nodes. The length member is the number of
+indices in the key array which have been initialized with keys. The leaf nodes have an additional sibling pointer.
 */
 
 /**
@@ -142,9 +142,9 @@ at this level are just above the leaf nodes. Otherwise set to 0.
 */
 struct NonLeafNodeInt{
   /**
-   * Level of the node in the tree.
+   * Flag if this node is a leaf
    */
-	int level;
+    bool leaf;
 
   /**
    * Number of entries in the key array
@@ -167,6 +167,11 @@ struct NonLeafNodeInt{
  * @brief Structure for all leaf nodes when the key is of INTEGER type.
 */
 struct LeafNodeInt{
+
+  /**
+   * Flag if this node is a leaf
+   */
+    bool leaf;
 
   /**
    * Number of entries in the key array
