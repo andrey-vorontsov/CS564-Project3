@@ -34,8 +34,6 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 {
     // Add your code below. Please do not remove this line.
 
-    // TODO written in Java style, not initialization list (maybe ok)
-
     bufMgr = bufMgrIn;
     this->attrByteOffset = attrByteOffset;
     attributeType = INTEGER; // attrType parameter ignored for this assignment
@@ -83,7 +81,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
     
         // init root page? 
         LeafNodeInt* root = (LeafNodeInt*) rootPage; // cast type
-        root->leaf = true; // usage - 1 if immediately above the leaves, else 0
+        root->leaf = true;
         root->length = 0;
         // no leaves - insertEntry will handle this initial case
 
@@ -101,7 +99,6 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         catch(EndOfFileException &e) {
         }
 
-        // TODO maybe it's okay to leave these pinned here, and unpin them in destructor
         bufMgr->unPinPage(file, headerPageNum, true);
         bufMgr->unPinPage(file, rootPageNum, true);
 
@@ -148,7 +145,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 {
     // Add your code below. Please do not remove this line.
 
-    int my_key = (int)*key;
+    int my_key = *(int*)key;
 
     // retrieve root
     Page* rootPage;
