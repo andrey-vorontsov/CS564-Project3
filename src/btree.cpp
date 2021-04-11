@@ -152,15 +152,18 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
     bufMgr->readPage(file, rootPageNum, rootPage);
     NonLeafNodeInt* root = (NonLeafNodeInt*) rootPage; // cast type
 
+    // find leaf page L where key belongs
+    Page* leafPage;
     LeafNodeInt* leaf;
-    PageID leafPageNo;
+    PageId leafPageNo;
     if (root->leaf) {
-        // just scan the root
+        // root is the leaf, just scan the root
+        leafPage = rootPage;
         leaf = (LeafNodeInt*)root;
-        leagPageNo = rootPageNum;
+        leafPageNo = rootPageNum;
     } else {
         // general case
-        // find leaf page L where key belongs
+        Page* currPage = rootPage;
         NonLeafNodeInt* curr = root;
         PageId currPageNo = rootPageNum;
         while (!curr->leaf) {
@@ -168,17 +171,26 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
                if (my_key < curr->keyArray[i]) {
                    // go to next non-leaf node
                    PageId nextPageNo = curr->pageNoArray[i];
-                   bufMgr->readPage(file, nextPageNo, (Page*)curr);
+                   bufMgr->readPage(file, nextPageNo, currPage);
+                   curr = (NonLeafNodeInt*) currPage;
                    bufMgr->unPinPage(file, currPageNo, false);
                    currPageNo = nextPageNo;
                } 
             }
-            // TODO add a case; if the key is larger than any key in the list
+            // if the key ended up larger than any key in the list
+            if (my_key > curr->keyArray[curr->length - 1]) {
+               PageId nextPageNo = curr->pageNoArray[curr->length];
+               bufMgr->readPage(file, nextPageNo, currPage);
+               curr = (NonLeafNodeInt*) currPage;
+               bufMgr->unPinPage(file, currPageNo, false);
+               currPageNo = nextPageNo;
+            }
         }
+        leafPage = currPage;
         leaf = (LeafNodeInt*)curr;// cast type
         leafPageNo = currPageNo;
     }
-    // at this point, curr and currPageNo refer to the leaf node in question
+    // at this point, leafPage (a Page*), leaf (a LeafNodeInt*), and leafPageNo (a PageId) refer to the leaf node in question
 
     // insert key,rid pair in L
 
