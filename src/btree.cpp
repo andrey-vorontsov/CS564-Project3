@@ -152,10 +152,12 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
     bufMgr->readPage(file, rootPageNum, rootPage);
     NonLeafNodeInt* root = (NonLeafNodeInt*) rootPage; // cast type
 
-    if (root->length == 0) {
-        // initial case - init two leaves, one left & one right of the key
-        // put the starting key,rid pair in properly
-        bufMgr->unPinPage(file, rootPageNum, true);
+    LeafNodeInt* leaf;
+    PageID leafPageNo;
+    if (root->leaf) {
+        // just scan the root
+        leaf = (LeafNodeInt*)root;
+        leagPageNo = rootPageNum;
     } else {
         // general case
         // find leaf page L where key belongs
@@ -171,17 +173,18 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
                    currPageNo = nextPageNo;
                } 
             }
+            // TODO add a case; if the key is larger than any key in the list
         }
-        // at this point, curr and currPageNo refer to the leaf node in question
-        // this leaf node pointer might be NULL..? depending on initial case. if so, init new?
-        LeafNodeInt* leaf = (LeafNodeInt*)curr;// cast type
-
-        // insert key,rid pair in L
-
-        // if not enough space in L: split, do not redistribute entries
-
-        // iterate: propagate up the middle key and split if needed
+        leaf = (LeafNodeInt*)curr;// cast type
+        leafPageNo = currPageNo;
     }
+    // at this point, curr and currPageNo refer to the leaf node in question
+
+    // insert key,rid pair in L
+
+    // if not enough space in L: split, do not redistribute entries
+
+    // iterate: propagate up the middle key and split if needed
 
 
 }
