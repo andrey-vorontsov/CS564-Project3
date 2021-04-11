@@ -45,14 +45,14 @@ enum Operator
 /**
  * @brief Number of key slots in B+Tree leaf for INTEGER key.
  */
-//                                                  sibling ptr         length          key               rid
-const  int INTARRAYLEAFSIZE = ( Page::SIZE - sizeof( PageId ) - sizeof( int ) ) / ( sizeof( int ) + sizeof( RecordId ) );
+//                                                  sibling ptr         length          flag                 key               rid
+const  int INTARRAYLEAFSIZE = ( Page::SIZE - sizeof( PageId ) - sizeof( int ) - sizeof( bool ) ) / ( sizeof( int ) + sizeof( RecordId ) );
 
 /**
  * @brief Number of key slots in B+Tree non-leaf for INTEGER key.
  */
-//                                                     level     extra pageNo            length              key        pageNo
-const  int INTARRAYNONLEAFSIZE = ( Page::SIZE - sizeof( int ) - sizeof( PageId ) - sizeof( int ) ) / ( sizeof( int ) + sizeof( PageId ) );
+//                                                     flag      extra pageNo            length              key        pageNo
+const  int INTARRAYNONLEAFSIZE = ( Page::SIZE - sizeof( bool ) - sizeof( PageId ) - sizeof( int ) ) / ( sizeof( int ) + sizeof( PageId ) );
 
 /**
  * @brief Structure to store a key-rid pair. It is used to pass the pair to functions that 
