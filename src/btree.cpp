@@ -148,7 +148,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 {
     // Add your code below. Please do not remove this line.
 
-    int my_key = *key;
+    int my_key = (int)*key;
 
     // retrieve root
     Page* rootPage;
@@ -169,7 +169,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
                if (my_key < curr->keyArray[i]) {
                    // go to next non-leaf node
                    PageId nextPageNo = curr->pageNoArray[i];
-                   bufMgf->readPage(file, nextPageNo, (Page*)curr);
+                   bufMgr->readPage(file, nextPageNo, (Page*)curr);
                    bufMgr->unPinPage(file, currPageNo, false);
                    currPageNo = nextPageNo;
                } 
