@@ -139,7 +139,7 @@ BTreeIndex::~BTreeIndex()
 
 
 // Private helper - tree traversal
-PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>& traversal)
+PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>*& traversal)
 {
     // retrieve root
     Page* rootPage;
@@ -162,7 +162,7 @@ PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>& traversal)
         PageId currPageNo = rootPageNum;
         while (!curr->leaf) {
             // save traversal path
-            traversal.push_back(currPageNo);
+            traversal->push_back(currPageNo);
 
             for (int i=0; i<curr->length; ++i) {
                if (key < curr->keyArray[i]) {
@@ -201,7 +201,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
     int my_key = *(int*)key;
 
     // traverse tree
-    std::vector<PageId> traversal;
+    std::vector<PageId>* traversal;
     PageId leafId = traverseTree(my_key, traversal);
 
     Page* leafPage;
@@ -212,14 +212,42 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
     // try to insert key,rid pair in L
     if (leaf->length < leafOccupancy) {
-        // TODO
+        delete traversal; // don't need this then
+        int i=0;
+        while (i<leaf->length) {
+            if (my_key < leaf->keyArray[i]) {
+                // found insert location
+                // shift all later entries right by one
+                for (int j=leaf->length; j>i; --j) {
+                    leaf->keyArray[j] = leaf->keyArray[j-1];
+                    leaf->ridArray[j] = leaf->ridArray[j-1];
+                }
+                leaf->keyArray[i] = my_key;
+                leaf->ridArray[i] = rid;
+                leaf->length += 1;
+                // successful insert
+                bufMgr->unPinPage(file, leafId, true);
+                return;
+            }
+            ++i;
+        }
+        // key was larger than any other
+        // insert at end
+        leaf->keyArray[leaf->length] = my_key;
+        leaf->ridArray[leaf->length] = rid;
         leaf->length += 1;
+        // successful insert; job's finished
+        bufMgr->unPinPage(file, leafId, true);
+        return;
     }
     else {
-        // if not enough space in L: split, do not redistribute entries
+        // TODO
+        // if not enough space in L: split, redistribute entries?
 
         // iterate: propagate up the middle key and split if needed
 
+        bufMgr->unPinPage(file, leafId, true);
+        delete traversal;
     }
 
 }
@@ -234,6 +262,39 @@ void BTreeIndex::startScan(const void* lowValParm,
 				   const Operator highOpParm)
 {
     // Add your code below. Please do not remove this line.
+    if (scanExecuting) {
+        // TODO throw the correct exception (or end the old scan?)
+        throw ScanNotInitializedException();
+    }
+    // accept scan parameters
+    lowValInt = *(int*)lowValParm;
+    highValInt = *(int*)highValParm;
+    if (lowValInt > highValInt) {
+        lowValInt = -1;
+        highValInt = -1;
+        throw BadScanrangeException();
+    }
+    lowOp = lowOpParm;
+    highOp = highOpParm;
+    if ((lowOp != GT && lowOp != GTE)
+         || (highOp != LT && highOp != LTE)) {
+        lowOp = GT;
+        highOp = LT;
+        throw BadOpcodesException();
+    }
+    
+    // set up scan state
+    std::vector<PageId>* traversal;
+    currentPageNum = traverseTree(lowValInt, traversal);
+    delete traversal; // unneeded here
+
+    bufMgr->readPage(file, currentPageNum, currentPageData);
+
+    // TODO locate the first entry that matches criteria
+    nextEntry = 0;
+     
+
+    scanExecuting = true;
 }
 
 // -----------------------------------------------------------------------------
@@ -243,6 +304,24 @@ void BTreeIndex::startScan(const void* lowValParm,
 void BTreeIndex::scanNext(RecordId& outRid) 
 {
     // Add your code below. Please do not remove this line.
+
+    if (!scanExecuting) {
+        throw ScanNotInitializedException();
+    }
+
+// TODO
+//    if highValInt reached
+//        IndexScanCompletedException
+//    outRid = nextEntry's rid
+
+
+      ++nextEntry;
+//    if done with this leaf
+//        unpin the page
+//        if not reached end of index
+//            currentPageNum = next page, pointed by leaf
+//            currentPageData = that page
+        
 }
 
 // -----------------------------------------------------------------------------
@@ -252,6 +331,22 @@ void BTreeIndex::scanNext(RecordId& outRid)
 void BTreeIndex::endScan() 
 {
     // Add your code below. Please do not remove this line.
+
+    if (!scanExecuting) {
+        throw ScanNotInitializedException();
+    } 
+
+    bufMgr->unPinPage(file, currentPageNum, false);
+   
+    // clear fields 
+    scanExecuting = false;
+    nextEntry = -1;
+    currentPageNum = -1;
+    currentPageData = NULL;
+    lowValInt = -1;
+    highValInt = -1;
+    lowOp = GT;
+    highOp = LT;
 }
 
 }

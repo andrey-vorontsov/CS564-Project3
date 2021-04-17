@@ -313,7 +313,7 @@ class BTreeIndex {
     * TODO comment
     * @return the PageId of the leaf this key ought to be in
     * */
-    PageId traverseTree(const int key, std::vector<PageId>& traversal);
+    PageId traverseTree(const int key, std::vector<PageId>*& traversal);
 
  public:
 
