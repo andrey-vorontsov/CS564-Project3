@@ -11,7 +11,6 @@
 #include <string>
 #include "string.h"
 #include <sstream>
-#include <vector>
 
 #include "types.h"
 #include "page.h"
@@ -308,13 +307,7 @@ class BTreeIndex {
    */
 	Operator	highOp;
 
-
-  /**
-    * TODO comment
-    * @return the PageId of the leaf this key ought to be in
-    * */
-    PageId traverseTree(const int key, std::vector<PageId>& traversal);
-
+	
  public:
 
   /**
@@ -341,7 +334,7 @@ class BTreeIndex {
 	 * */
 	~BTreeIndex();
 
-	
+
   /**
 	 * Insert a new entry using the pair <value,rid>. 
 	 * Start from root to recursively find out the leaf to insert the entry in. The insertion may cause splitting of leaf node.

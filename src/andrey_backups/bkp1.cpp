@@ -137,59 +137,6 @@ BTreeIndex::~BTreeIndex()
     delete file;
 }
 
-
-// Private helper - tree traversal
-PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>& traversal)
-{
-    // retrieve root
-    Page* rootPage;
-    bufMgr->readPage(file, rootPageNum, rootPage);
-    NonLeafNodeInt* root = (NonLeafNodeInt*) rootPage; // cast type
-
-    // init traversal vector
-    traversal = {};
-
-    // find leaf page L where key belongs
-    if (root->leaf) {
-        // root is the leaf, just return the root
-        // traversal list contains no non-leaf pageIds
-        bufMgr->unPinPage(file, rootPageNum, false);
-        return rootPageNum;
-    } else {
-        // general case
-        Page* currPage = rootPage;
-        NonLeafNodeInt* curr = root;
-        PageId currPageNo = rootPageNum;
-        while (!curr->leaf) {
-            // save traversal path
-            traversal.push_back(currPageNo);
-
-            for (int i=0; i<curr->length; ++i) {
-               if (key < curr->keyArray[i]) {
-                   // go to next non-leaf node
-                   PageId nextPageNo = curr->pageNoArray[i];
-                   bufMgr->readPage(file, nextPageNo, currPage);
-                   curr = (NonLeafNodeInt*) currPage;
-                   bufMgr->unPinPage(file, currPageNo, false);
-                   currPageNo = nextPageNo;
-               } 
-            }
-
-            // if the key ended up larger than any key in the list
-            if (key > curr->keyArray[curr->length - 1]) {
-               PageId nextPageNo = curr->pageNoArray[curr->length];
-               bufMgr->readPage(file, nextPageNo, currPage);
-               curr = (NonLeafNodeInt*) currPage;
-               bufMgr->unPinPage(file, currPageNo, false);
-               currPageNo = nextPageNo;
-            }
-        }
-        bufMgr->unPinPage(file, currPageNo, false);
-        return currPageNo;
-    }
-}
-
-
 // -----------------------------------------------------------------------------
 // BTreeIndex::insertEntry
 // -----------------------------------------------------------------------------
@@ -200,25 +147,65 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
     int my_key = *(int*)key;
 
-    // traverse tree
-    std::vector<PageId> traversal;
-    PageId leafId = traverseTree(my_key, traversal);
+    // retrieve root
+    Page* rootPage;
+    bufMgr->readPage(file, rootPageNum, rootPage);
+    NonLeafNodeInt* root = (NonLeafNodeInt*) rootPage; // cast type
 
+    // find leaf page L where key belongs
     Page* leafPage;
-    bufMgr->readPage(file, leafId, leafPage);
-    LeafNodeInt* leaf = (LeafNodeInt*) leafPage; // cast type
-
-    // no risk of duplicates - don't need to worry about collision
+    LeafNodeInt* leaf;
+    PageId leafPageNo;
+    if (root->leaf) {
+        // root is the leaf, just scan the root
+        leafPage = rootPage;
+        leaf = (LeafNodeInt*)root;
+        leafPageNo = rootPageNum;
+    } else {
+        // general case
+        Page* currPage = rootPage;
+        NonLeafNodeInt* curr = root;
+        PageId currPageNo = rootPageNum;
+        while (!curr->leaf) {
+            for (int i=0; i<curr->length; ++i) {
+               if (my_key < curr->keyArray[i]) {
+                   // go to next non-leaf node
+                   PageId nextPageNo = curr->pageNoArray[i];
+                   bufMgr->readPage(file, nextPageNo, currPage);
+                   curr = (NonLeafNodeInt*) currPage;
+                   bufMgr->unPinPage(file, currPageNo, false);
+                   currPageNo = nextPageNo;
+               } 
+            }
+            // if the key ended up larger than any key in the list
+            if (my_key > curr->keyArray[curr->length - 1]) {
+               PageId nextPageNo = curr->pageNoArray[curr->length];
+               bufMgr->readPage(file, nextPageNo, currPage);
+               curr = (NonLeafNodeInt*) currPage;
+               bufMgr->unPinPage(file, currPageNo, false);
+               currPageNo = nextPageNo;
+            }
+        }
+        leafPage = currPage;
+        leaf = (LeafNodeInt*)curr;// cast type
+        leafPageNo = currPageNo;
+    }
+    // at this point, leafPage (a Page*), leaf (a LeafNodeInt*), and leafPageNo (a PageId) refer to the leaf node in question
 
     // try to insert key,rid pair in L
     if (leaf->length < leafOccupancy) {
-        // TODO
+        leaf->keyArray[leaf->length] = my_key;
+        leaf->ridArray[leaf->length] = rid;
         leaf->length += 1;
     }
     else {
         // if not enough space in L: split, do not redistribute entries
 
         // iterate: propagate up the middle key and split if needed
+
+		// TODO whoops... need to keep the list of ancestor pages saved
+        // so unpinning them will have to wait?
+        // alternatively could add and maintain parent pointers
 
     }
 
