@@ -81,11 +81,11 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         meta->attrType = attrType;
         meta->rootPageNo = rootPageNum;
     
-        // init root page? 
+        // init root page
         LeafNodeInt* root = (LeafNodeInt*) rootPage; // cast type
         root->leaf = true;
         root->length = 0;
-        // no leaves - insertEntry will handle this initial case
+        root->rightSibPageNo = 0;
 
         // insert entries for every tuple in relation
         FileScan fs(relationName, bufMgr);
@@ -268,6 +268,31 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
     delete traversal;
 }
 
+
+// Private helper - move the scan to the next entry
+void BTreeIndex::advanceScan()
+{ 
+    LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
+    if (nextEntry >= currLeaf->length) {
+        // need to go to a new page
+        PageId nextPageNum = currLeaf->rightSibPageNo;
+        if (nextPageNum == 0) { // sentinel value: no more pages left
+            // set flag values to signal no nextEntry is available
+            nextEntry = -1;
+            currentPageNum = 0;
+            currentPageData = NULL;
+            throw IndexScanCompletedException();
+        }
+        bufMgr->readPage(file, nextPageNum, currentPageData);
+        // unpin old
+        bufMgr->unPinPage(file, currentPageNum, false);
+        currentPageNum = nextPageNum;
+        nextEntry = 0;
+    }
+    ++nextEntry;
+}
+
+
 // -----------------------------------------------------------------------------
 // BTreeIndex::startScan
 // -----------------------------------------------------------------------------
@@ -279,7 +304,7 @@ void BTreeIndex::startScan(const void* lowValParm,
 {
     // Add your code below. Please do not remove this line.
     if (scanExecuting) {
-        // TODO end the old scan
+        endScan();
     }
     // accept scan parameters
     lowValInt = *(int*)lowValParm;
@@ -305,11 +330,27 @@ void BTreeIndex::startScan(const void* lowValParm,
 
     bufMgr->readPage(file, currentPageNum, currentPageData);
 
-    // TODO locate the first entry that matches criteria
-    // TODO throw NoSuchKeyFoundException if we hit the end while searching here
+    LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
+    // locate the first entry that matches criteria
     nextEntry = 0;
-     
+    while ((lowOp == GT && !(currLeaf->keyArray[nextEntry] > lowValInt))
+           || (lowOp == GTE && !(currLeaf->keyArray[nextEntry] >= lowValInt))) {
 
+        try {
+            advanceScan();
+            if ((highOp == LT && !(currLeaf->keyArray[nextEntry] < highValInt))
+                || (highOp == LTE && !(currLeaf->keyArray[nextEntry] <= highValInt))) {
+                // hit values too large while searching for start of scan!
+                throw NoSuchKeyFoundException();
+            }
+        }
+        catch (IndexScanCompletedException &e) {
+            // hit end of index while searching for start of scan!
+            throw NoSuchKeyFoundException();
+        }
+    }
+
+    // successfully started to scan; nextEntry from scanNext will be first in range
     scanExecuting = true;
 }
 
@@ -325,18 +366,28 @@ void BTreeIndex::scanNext(RecordId& outRid)
         throw ScanNotInitializedException();
     }
 
-// TODO
-//    if highValInt reached, or end of everything reached
-//        IndexScanCompletedException
-//    outRid = nextEntry's rid
+    // pull next entry rid, if we have one
+    if (nextEntry == -1) {
+        throw IndexScanCompletedException();
+    }
+    LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
 
+    // if highValInt reached, also exception
+    if ((highOp == LT && !(currLeaf->keyArray[nextEntry] < highValInt))
+        || (highOp == LTE && !(currLeaf->keyArray[nextEntry] <= highValInt))) {
+        throw IndexScanCompletedException();
+    }
 
-      ++nextEntry;
-//    if done with this leaf
-//        unpin the page
-//        if not reached end of index
-//            currentPageNum = next page, pointed by leaf
-//            currentPageData = that page
+    // alright, no fail conditions hit, return the value
+    outRid = currLeaf->ridArray[nextEntry];
+
+    // prepare next entry
+    try {
+        advanceScan();
+    }
+    catch (IndexScanCompletedException &e) {
+        // nextEntry will be -1: next time we scan, will except
+    }
         
 }
 

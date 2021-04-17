@@ -318,6 +318,14 @@ class BTreeIndex {
     * */
     PageId traverseTree(const int key, std::vector<PageId>*& traversal);
 
+
+  /**
+    * Private helper function to isolate logic of moving scan forward.
+    * Handles updating scan state without needing logic of scan bounds (lowVal/highVal).
+    * @throws IndexScanCompletedException if reaches end of index (this exception interpreted differently in startScan)
+    * */
+    void advanceScan();
+
  public:
 
   /**
