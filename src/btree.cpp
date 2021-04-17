@@ -46,9 +46,8 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
     std::string indexName = idxStr.str();
 
     // assign pages numbers in file
-    // TODO verify if headerPageNum and rootPageNum end up getting 0 and 1 from allocPage
-    headerPageNum = 0;
-    rootPageNum = 1;
+    headerPageNum = 1;
+    rootPageNum = 2;
 
     // assign file, create if needed
     file = new BlobFile(indexName, !File::exists(indexName));
@@ -57,6 +56,9 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
     if (File::exists(indexName)) {
         // load fields from file header page
         // this assumes the file header page is at pageid 0, as noted above
+
+        // TODO throw BadIndexInfoException if something doesn't match
+
         Page* headerPage;
         bufMgr->readPage(file, headerPageNum, headerPage);
         IndexMetaInfo* meta = (IndexMetaInfo*) headerPage; // cast type
@@ -210,46 +212,60 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
     // no risk of duplicates - don't need to worry about collision
 
-    // try to insert key,rid pair in L
-    if (leaf->length < leafOccupancy) {
-        delete traversal; // don't need this then
-        int i=0;
-        while (i<leaf->length) {
-            if (my_key < leaf->keyArray[i]) {
-                // found insert location
-                // shift all later entries right by one
-                for (int j=leaf->length; j>i; --j) {
-                    leaf->keyArray[j] = leaf->keyArray[j-1];
-                    leaf->ridArray[j] = leaf->ridArray[j-1];
-                }
-                leaf->keyArray[i] = my_key;
-                leaf->ridArray[i] = rid;
-                leaf->length += 1;
-                // successful insert
-                bufMgr->unPinPage(file, leafId, true);
-                return;
+    // insert key,rid pair in L
+    int i=0;
+    bool inserted = false;
+    while (i<leaf->length) {
+        if (my_key < leaf->keyArray[i]) {
+            // found insert location
+            // shift all later entries right by one
+            for (int j=leaf->length; j>i; --j) {
+                leaf->keyArray[j] = leaf->keyArray[j-1];
+                leaf->ridArray[j] = leaf->ridArray[j-1];
             }
-            ++i;
+            leaf->keyArray[i] = my_key;
+            leaf->ridArray[i] = rid;
+            leaf->length += 1;
+            // successful insert
+            inserted = true;
+            break;
         }
+        ++i;
+    }
+    if (!inserted) {
         // key was larger than any other
         // insert at end
         leaf->keyArray[leaf->length] = my_key;
         leaf->ridArray[leaf->length] = rid;
         leaf->length += 1;
-        // successful insert; job's finished
-        bufMgr->unPinPage(file, leafId, true);
-        return;
+        // successful insert
     }
-    else {
+
+    // now leaf might be full; if so, split & iterate up
+    if (leaf->length >= leafOccupancy) {
+        // allocate a new leaf page
+        PageId newLeafId;
+        Page* newLeafPage;
+        bufMgr->allocPage(file, newLeafId, newLeafPage);
+        LeafNodeInt* newLeaf = (LeafNodeInt*) newLeafPage;
+
         // TODO
-        // if not enough space in L: split, redistribute entries?
+        // pull out middle key
+        // place larger half of keys in the new leaf
+        // set fields
+        newLeaf->leaf = true;
+        //newLeaf->length
+        //leaf->length
+        bufMgr->unPinPage(file, newLeafId, true);
 
-        // iterate: propagate up the middle key and split if needed
-
-        bufMgr->unPinPage(file, leafId, true);
-        delete traversal;
+        // work up the tree
+        // insert key into non-leaf node
+        // if full, split
+        // if root, split & make new root & update header
     }
 
+    bufMgr->unPinPage(file, leafId, true);
+    delete traversal;
 }
 
 // -----------------------------------------------------------------------------
@@ -263,8 +279,7 @@ void BTreeIndex::startScan(const void* lowValParm,
 {
     // Add your code below. Please do not remove this line.
     if (scanExecuting) {
-        // TODO throw the correct exception (or end the old scan?)
-        throw ScanNotInitializedException();
+        // TODO end the old scan
     }
     // accept scan parameters
     lowValInt = *(int*)lowValParm;
@@ -291,6 +306,7 @@ void BTreeIndex::startScan(const void* lowValParm,
     bufMgr->readPage(file, currentPageNum, currentPageData);
 
     // TODO locate the first entry that matches criteria
+    // TODO throw NoSuchKeyFoundException if we hit the end while searching here
     nextEntry = 0;
      
 
@@ -310,7 +326,7 @@ void BTreeIndex::scanNext(RecordId& outRid)
     }
 
 // TODO
-//    if highValInt reached
+//    if highValInt reached, or end of everything reached
 //        IndexScanCompletedException
 //    outRid = nextEntry's rid
 

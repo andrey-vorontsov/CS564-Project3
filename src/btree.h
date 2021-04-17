@@ -310,7 +310,10 @@ class BTreeIndex {
 
 
   /**
-    * TODO comment
+    * Private helper function to isolate tree traversal implementation.
+    * Gives back the desired leaf node and the path taken to get to it in the tree.
+    * @param key the key to find the leaf for
+    * @param traversal return a sequence of non-leaf nodes, starting with the root
     * @return the PageId of the leaf this key ought to be in
     * */
     PageId traverseTree(const int key, std::vector<PageId>*& traversal);
