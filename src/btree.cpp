@@ -33,6 +33,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 		const Datatype attrType)
 {
     // Add your code below. Please do not remove this line.
+    std::cout << "Start constructor." << std::endl;
 
     bufMgr = bufMgrIn;
     this->attrByteOffset = attrByteOffset;
@@ -49,15 +50,15 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
     headerPageNum = 1;
     rootPageNum = 2;
 
-    // assign file, create if needed
-    file = new BlobFile(indexName, !File::exists(indexName));
-
     // if file has already been initialized
     if (File::exists(indexName)) {
+        std::cout << "File already exists: " << indexName << std::endl;
         // load fields from file header page
         // this assumes the file header page is at pageid 0, as noted above
 
         // TODO throw BadIndexInfoException if something doesn't match
+
+        file = new BlobFile(indexName, false);
 
         Page* headerPage;
         bufMgr->readPage(file, headerPageNum, headerPage);
@@ -67,6 +68,10 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 
         // no further action
     } else {
+        std::cout << "File doesn't exist: " << indexName << std::endl;
+
+        file = new BlobFile(indexName, true);
+
         // need to init metadata and root pages in file
         // assumption of only integer keys is made
 	    Page* headerPage;
@@ -94,7 +99,9 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
                 RecordId rid;
                 fs.scanNext(rid);
                 std::string record = fs.getRecord();
-                void* key = &record[attrByteOffset]; // this will compile but is incorrect
+                const char* recordPtr = record.c_str();
+                // std::cout << "Record: " << record << std::endl;
+                const void* key = (void *)(recordPtr + attrByteOffset); // copied from main.cpp
                 insertEntry(key, rid);
             }
         }
@@ -120,6 +127,8 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 
     // return value
     outIndexName = indexName;
+
+    std::cout << "End of constructor." << std::endl;
 }
 
 
@@ -137,25 +146,32 @@ BTreeIndex::~BTreeIndex()
     // TODO catch exceptions from flush
     bufMgr->flushFile(file);
     delete file;
+
+    std::cout << "End of destructor." << std::endl;
 }
 
 
 // Private helper - tree traversal
-PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>*& traversal)
+PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>& traversal)
 {
+
+    std::cout << "Started tree traversal with key " << key << "." << std::endl;
+
     // retrieve root
     Page* rootPage;
     bufMgr->readPage(file, rootPageNum, rootPage);
     NonLeafNodeInt* root = (NonLeafNodeInt*) rootPage; // cast type
 
     // init traversal vector
-    traversal = {};
+    traversal.clear();
 
     // find leaf page L where key belongs
     if (root->leaf) {
         // root is the leaf, just return the root
         // traversal list contains no non-leaf pageIds
         bufMgr->unPinPage(file, rootPageNum, false);
+        
+        std::cout << ">>> Traversal done: returned root node." << std::endl;
         return rootPageNum;
     } else {
         // general case
@@ -164,7 +180,7 @@ PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>*& traversal)
         PageId currPageNo = rootPageNum;
         while (!curr->leaf) {
             // save traversal path
-            traversal->push_back(currPageNo);
+            traversal.push_back(currPageNo);
 
             for (int i=0; i<curr->length; ++i) {
                if (key < curr->keyArray[i]) {
@@ -187,6 +203,7 @@ PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>*& traversal)
             }
         }
         bufMgr->unPinPage(file, currPageNo, false);
+        std::cout << ">>> Traversal done: found leaf at depth " << traversal.size() << std::endl;
         return currPageNo;
     }
 }
@@ -202,8 +219,10 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
     int my_key = *(int*)key;
 
+    std::cout << "Insert entry called with key " << my_key << std::endl;
+
     // traverse tree
-    std::vector<PageId>* traversal;
+    std::vector<PageId> traversal;
     PageId leafId = traverseTree(my_key, traversal);
 
     Page* leafPage;
@@ -228,6 +247,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
             leaf->length += 1;
             // successful insert
             inserted = true;
+            std::cout << "Inserted in leaf." << std::endl;
             break;
         }
         ++i;
@@ -239,10 +259,13 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
         leaf->ridArray[leaf->length] = rid;
         leaf->length += 1;
         // successful insert
+        std::cout << "Inserted at end of leaf." << std::endl;
     }
 
     // now leaf might be full; if so, split & iterate up
     if (leaf->length == leafOccupancy) {
+
+        std::cout << "Leaf became full, starting split." << std::endl;
         // TODO currently assumed leafOccupancy is strictly even... might be wrong?
         // allocate a new leaf page
         PageId newLeafId;
@@ -274,8 +297,8 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
         // and middleId, the pageId to push up with that key
 
         // push middle key up the tree
-        for (int i=traversal->size()-1; i>=0; --i) {
-            PageId ancestorId = traversal->at(i);
+        for (int i=traversal.size()-1; i>=0; --i) {
+            PageId ancestorId = traversal[i];
             Page* ancestorPage;
             bufMgr->readPage(file, ancestorId, ancestorPage);
             NonLeafNodeInt* curr = (NonLeafNodeInt*) ancestorPage;
@@ -296,6 +319,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
                     curr->length += 1;
                     // successful insert
                     inserted = true;
+                    std::cout << "Inserted middle key in ancestor." << std::endl;
                     break;
                 }
                 ++k;
@@ -307,10 +331,12 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
                 curr->pageNoArray[curr->length+1] = middleId;
                 curr->length += 1;
                 // successful insert
+                std::cout << "Inserted middle key at end of ancestor." << std::endl;
             }
 
             // if full, split
             if (curr->length == nodeOccupancy) {
+                std::cout << "Ancestor became full, split it too." << std::endl;
                 // TODO currently assumed nodeOccupancy is strictly even... might be wrong?
                 // allocate a new NON-leaf page
                 PageId newNodeId;
@@ -341,6 +367,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
                 if (i==0) {
                     // reached the root; need to make a new root above, update meta page
                     
+                    std::cout << "This is the root; updating header and pushing up new root." << std::endl;
                     PageId newRootId;
                     Page* newRootPage;
                     bufMgr->allocPage(file, newRootId, newRootPage);
@@ -368,16 +395,40 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
                 break;
             }
         }
+        // TODO is this sloppY?
+        // in the initial case, the root is in page 2, so leaf IS the root (no parents)
+        if (leafId == 2) {        
+            std::cout << "This is the root; updating header and pushing up new root." << std::endl;
+            PageId newRootId;
+            Page* newRootPage;
+            bufMgr->allocPage(file, newRootId, newRootPage);
+            NonLeafNodeInt* newRoot = (NonLeafNodeInt*) newRootPage;
+
+            newRoot->leaf = false;
+            newRoot->length = 1;
+            newRoot->keyArray[0] = middle;
+            newRoot->pageNoArray[0] = leafId;
+            newRoot->pageNoArray[1] = middleId;
+
+            Page* headerPage; 
+            bufMgr->readPage(file, headerPageNum, headerPage);
+            IndexMetaInfo* meta = (IndexMetaInfo*)headerPage;
+            meta->rootPageNo = newRootId;
+
+            bufMgr->unPinPage(file, headerPageNum, true);
+            bufMgr->unPinPage(file, newRootId, true);
+
+        }
     }
 
     bufMgr->unPinPage(file, leafId, true);
-    delete traversal;
 }
 
 
 // Private helper - move the scan to the next entry
 void BTreeIndex::advanceScan()
-{ 
+{
+    // std::cout << "advanceScan() called." << std::endl;
     LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
     if (nextEntry >= currLeaf->length) {
         // need to go to a new page
@@ -408,6 +459,7 @@ void BTreeIndex::startScan(const void* lowValParm,
 				   const void* highValParm,
 				   const Operator highOpParm)
 {
+    std::cout << "startScan() called." << std::endl;
     // Add your code below. Please do not remove this line.
     if (scanExecuting) {
         endScan();
@@ -430,9 +482,8 @@ void BTreeIndex::startScan(const void* lowValParm,
     }
     
     // set up scan state
-    std::vector<PageId>* traversal;
+    std::vector<PageId> traversal;
     currentPageNum = traverseTree(lowValInt, traversal);
-    delete traversal; // unneeded here
 
     bufMgr->readPage(file, currentPageNum, currentPageData);
 
@@ -468,6 +519,7 @@ void BTreeIndex::scanNext(RecordId& outRid)
 {
     // Add your code below. Please do not remove this line.
 
+    std::cout << "scanNext() called." << std::endl;
     if (!scanExecuting) {
         throw ScanNotInitializedException();
     }
@@ -503,6 +555,7 @@ void BTreeIndex::scanNext(RecordId& outRid)
 //
 void BTreeIndex::endScan() 
 {
+    std::cout << "endScan() called." << std::endl;
     // Add your code below. Please do not remove this line.
 
     if (!scanExecuting) {

@@ -316,7 +316,7 @@ class BTreeIndex {
     * @param traversal return a sequence of non-leaf nodes, starting with the root
     * @return the PageId of the leaf this key ought to be in
     * */
-    PageId traverseTree(const int key, std::vector<PageId>*& traversal);
+    PageId traverseTree(const int key, std::vector<PageId>& traversal);
 
 
   /**
