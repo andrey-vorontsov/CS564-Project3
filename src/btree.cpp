@@ -178,7 +178,7 @@ PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>*& traversal)
             }
 
             // if the key ended up larger than any key in the list
-            if (key > curr->keyArray[curr->length - 1]) {
+            if (key >= curr->keyArray[curr->length - 1]) {
                PageId nextPageNo = curr->pageNoArray[curr->length];
                bufMgr->readPage(file, nextPageNo, currPage);
                curr = (NonLeafNodeInt*) currPage;
@@ -242,26 +242,132 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
     }
 
     // now leaf might be full; if so, split & iterate up
-    if (leaf->length >= leafOccupancy) {
+    if (leaf->length == leafOccupancy) {
+        // TODO currently assumed leafOccupancy is strictly even... might be wrong?
         // allocate a new leaf page
         PageId newLeafId;
         Page* newLeafPage;
         bufMgr->allocPage(file, newLeafId, newLeafPage);
         LeafNodeInt* newLeaf = (LeafNodeInt*) newLeafPage;
 
-        // TODO
         // pull out middle key
+        int middle = leaf->keyArray[leaf->length/2];
         // place larger half of keys in the new leaf
+        for (int i=0; i<leaf->length-(leaf->length/2); ++i) {
+            newLeaf->keyArray[i] = leaf->keyArray[(leaf->length/2)+i];
+            newLeaf->ridArray[i] = leaf->ridArray[(leaf->length/2)+i];
+            // wipe out the keys in old leaf; for safety... I guess
+            leaf->keyArray[(leaf->length/2)+i] = -1;
+            
+        }
         // set fields
         newLeaf->leaf = true;
-        //newLeaf->length
-        //leaf->length
+        newLeaf->length = leaf->length-(leaf->length/2);
+        leaf->length = leaf->length/2;
+        newLeaf->rightSibPageNo = leaf->rightSibPageNo;
+        leaf->rightSibPageNo = newLeafId;
+        // done setting up new node
         bufMgr->unPinPage(file, newLeafId, true);
 
-        // work up the tree
-        // insert key into non-leaf node
-        // if full, split
-        // if root, split & make new root & update header
+        PageId middleId = newLeafId;
+        // variables used in loop: middle, the key to push up;
+        // and middleId, the pageId to push up with that key
+
+        // push middle key up the tree
+        for (int i=traversal->size()-1; i>=0; --i) {
+            PageId ancestorId = traversal->at(i);
+            Page* ancestorPage;
+            bufMgr->readPage(file, ancestorId, ancestorPage);
+            NonLeafNodeInt* curr = (NonLeafNodeInt*) ancestorPage;
+
+            // insert into parent
+            int k=0;
+            bool inserted = false;
+            while (k<curr->length) {
+                if (middle < curr->keyArray[k]) {
+                    // found insert location
+                    // shift all later entries right by one
+                    for (int j=curr->length; j>k; --j) {
+                        curr->keyArray[j] = curr->keyArray[j-1];
+                        curr->pageNoArray[j+1] = curr->pageNoArray[j];
+                    }
+                    curr->keyArray[k] = middle;
+                    curr->pageNoArray[k+1] = middleId;
+                    curr->length += 1;
+                    // successful insert
+                    inserted = true;
+                    break;
+                }
+                ++k;
+            }
+            if (!inserted) {
+                // key was larger than any other
+                // insert at end
+                curr->keyArray[curr->length] = middle;
+                curr->pageNoArray[curr->length+1] = middleId;
+                curr->length += 1;
+                // successful insert
+            }
+
+            // if full, split
+            if (curr->length == nodeOccupancy) {
+                // TODO currently assumed nodeOccupancy is strictly even... might be wrong?
+                // allocate a new NON-leaf page
+                PageId newNodeId;
+                Page* newNodePage;
+                bufMgr->allocPage(file, newNodeId, newNodePage);
+                NonLeafNodeInt* newNode = (NonLeafNodeInt*) newNodePage;
+
+                // pull out middle key
+                middle = curr->keyArray[curr->length/2];
+                // place larger half of keys in the new node
+                // TODO verify what the heck these indices are doing
+                for (int k=1; k<curr->length-(curr->length/2)-1; ++k) {
+                    newNode->keyArray[k] = curr->keyArray[(curr->length/2)+i];
+                    newNode->pageNoArray[k-1] = curr->pageNoArray[(curr->length/2)+i];
+                    // wipe out the keys in old node
+                    curr->keyArray[(curr->length/2)+k] = -1;
+            
+                }
+                // set fields
+                newNode->leaf = false;
+                newNode->length = curr->length-(curr->length/2);
+                curr->length = curr->length/2;
+                // done setting up new node
+                bufMgr->unPinPage(file, newNodeId, true);
+
+                middleId = newNodeId;
+
+                if (i==0) {
+                    // reached the root; need to make a new root above, update meta page
+                    
+                    PageId newRootId;
+                    Page* newRootPage;
+                    bufMgr->allocPage(file, newRootId, newRootPage);
+                    NonLeafNodeInt* newRoot = (NonLeafNodeInt*) newRootPage;
+
+                    newRoot->leaf = false;
+                    newRoot->length = 1;
+                    newRoot->keyArray[0] = middle;
+                    newRoot->pageNoArray[0] = ancestorId;
+                    newRoot->pageNoArray[1] = middleId;
+
+                    Page* headerPage; 
+                    bufMgr->readPage(file, headerPageNum, headerPage);
+                    IndexMetaInfo* meta = (IndexMetaInfo*)headerPage;
+
+                    meta->rootPageNo = newRootId;
+
+                    bufMgr->unPinPage(file, headerPageNum, true);
+                    bufMgr->unPinPage(file, newRootId, true);
+
+                }
+            }
+            else {
+                // no need to propagate further
+                break;
+            }
+        }
     }
 
     bufMgr->unPinPage(file, leafId, true);
