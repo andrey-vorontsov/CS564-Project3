@@ -190,6 +190,7 @@ PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>& traversal)
                    curr = (NonLeafNodeInt*) currPage;
                    bufMgr->unPinPage(file, currPageNo, false);
                    currPageNo = nextPageNo;
+                   break;
                } 
             }
 
@@ -335,7 +336,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
             // if full, split
             if (curr->length == nodeOccupancy) {
-                std::cout << "Ancestor became full, split it too." << std::endl;
+                std::cout << "Ancestor became full, split it too. nodeOccupancy = " << nodeOccupancy << std::endl;
                 // TODO currently assumed nodeOccupancy is strictly even... might be wrong?
                 // allocate a new NON-leaf page
                 PageId newNodeId;
@@ -384,6 +385,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 
                     meta->rootPageNo = newRootId;
                     rootPageNum = newRootId;
+                    std::cout << "Assigned new root id: " << rootPageNum << std::endl;
 
                     bufMgr->unPinPage(file, headerPageNum, true);
                     bufMgr->unPinPage(file, newRootId, true);
@@ -395,7 +397,6 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
                 break;
             }
         }
-        // TODO is this sloppY?
         // in the initial case, the root is in page 2, so leaf IS the root (no parents)
         if (leafId == 2) {        
             std::cout << "This is the initial root; updating header and pushing up new root." << std::endl;
@@ -415,6 +416,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
             IndexMetaInfo* meta = (IndexMetaInfo*)headerPage;
             meta->rootPageNo = newRootId;
             rootPageNum = newRootId;
+            std::cout << "Assigned new root id: " << rootPageNum << std::endl;
 
             bufMgr->unPinPage(file, headerPageNum, true);
             bufMgr->unPinPage(file, newRootId, true);
@@ -486,6 +488,12 @@ void BTreeIndex::startScan(const void* lowValParm,
     std::vector<PageId> traversal;
     currentPageNum = traverseTree(lowValInt, traversal);
 
+    std::cout << "Traversed tree for scan start. Traversal: ";
+    for(long unsigned int i=0; i < traversal.size(); i++) {
+        std::cout << traversal[i] << " ";
+    }
+    std::cout <<  "with leaf: " << currentPageNum << std::endl;
+
     bufMgr->readPage(file, currentPageNum, currentPageData);
 
     LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
@@ -520,7 +528,7 @@ void BTreeIndex::scanNext(RecordId& outRid)
 {
     // Add your code below. Please do not remove this line.
 
-    std::cout << "scanNext() called." << std::endl;
+    // std::cout << "scanNext() called." << std::endl;
     if (!scanExecuting) {
         throw ScanNotInitializedException();
     }
