@@ -24,7 +24,7 @@ class PagePinnedException : public BadgerDbException {
    */
   explicit PagePinnedException(const std::string& nameIn, PageId pageNoIn, FrameId frameNoIn);
 
- protected:
+ // protected:
   /**
    * Name of file that caused this exception.
    */

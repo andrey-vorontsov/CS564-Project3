@@ -15,6 +15,8 @@
 #include "exceptions/index_scan_completed_exception.h"
 #include "exceptions/file_not_found_exception.h"
 #include "exceptions/end_of_file_exception.h"
+#include "exceptions/page_pinned_exception.h"
+// TODO I made the fields of page_pinned_exception.h public for debug... UNDO THAT
 
 
 //#define DEBUG
@@ -108,10 +110,11 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         catch(EndOfFileException &e) {
         }
 
-        bufMgr->unPinPage(file, headerPageNum, true);
         bufMgr->unPinPage(file, rootPageNum, true);
 
     }
+
+    bufMgr->unPinPage(file, headerPageNum, true);
 
     // init fields specific to scanning
     scanExecuting = false;
@@ -143,8 +146,19 @@ BTreeIndex::~BTreeIndex()
     if (scanExecuting) {
         endScan();
     }
-    // TODO catch exceptions from flush
-    bufMgr->flushFile(file);
+    // unpin any pages that remained pinned
+    // TODO stop any pin leaks, then make page pinned exception protected again
+    bool done = false;
+    while (!done) {
+        try {
+            bufMgr->flushFile(file);
+            done = true;
+        }
+        catch (PagePinnedException &e) {
+            std::cout << "Pin mistake with pageNo: " << e.pageNo << std::endl;
+            bufMgr->unPinPage(file, e.pageNo, true); // assume dirty
+        }
+    }
     delete file;
 
     std::cout << "End of destructor." << std::endl;
@@ -337,7 +351,6 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
             // if full, split
             if (curr->length == nodeOccupancy) {
                 std::cout << "Ancestor became full, split it too. nodeOccupancy = " << nodeOccupancy << std::endl;
-                // TODO currently assumed nodeOccupancy is strictly even... might be wrong?
                 // allocate a new NON-leaf page
                 PageId newNodeId;
                 Page* newNodePage;
@@ -363,6 +376,8 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
                 bufMgr->unPinPage(file, newNodeId, true);
 
                 middleId = newNodeId;
+                // done copying info from ancestor
+                bufMgr->unPinPage(file, ancestorId, true);
 
                 if (i==0) {
                     // reached the root; need to make a new root above, update meta page
@@ -398,7 +413,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
             }
         }
         // in the initial case, the root is in page 2, so leaf IS the root (no parents)
-        if (leafId == 2) {        
+        if (leafId == 2 && rootPageNum == 2) {
             std::cout << "This is the initial root; updating header and pushing up new root." << std::endl;
             PageId newRootId;
             Page* newRootPage;
@@ -528,7 +543,7 @@ void BTreeIndex::scanNext(RecordId& outRid)
 {
     // Add your code below. Please do not remove this line.
 
-    // std::cout << "scanNext() called." << std::endl;
+    std::cout << "scanNext() called." << std::endl;
     if (!scanExecuting) {
         throw ScanNotInitializedException();
     }
