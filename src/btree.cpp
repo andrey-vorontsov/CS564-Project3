@@ -448,7 +448,7 @@ void BTreeIndex::advanceScan()
 {
     // std::cout << "advanceScan() called." << std::endl;
     LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
-    if (nextEntry >= currLeaf->length-1) {
+    if (nextEntry >= currLeaf->length) {
         // need to go to a new page
         PageId nextPageNum = currLeaf->rightSibPageNo;
         if (nextPageNum == 0) { // sentinel value: no more pages left
