@@ -299,8 +299,8 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
         }
         // set fields
         newLeaf->leaf = true;
-        newLeaf->length = leaf->length-(leaf->length/2);
         leaf->length = leaf->length/2;
+        newLeaf->length = leaf->length-(leaf->length/2);
         newLeaf->rightSibPageNo = leaf->rightSibPageNo;
         leaf->rightSibPageNo = newLeafId;
         // done setting up new node
@@ -448,7 +448,7 @@ void BTreeIndex::advanceScan()
 {
     // std::cout << "advanceScan() called." << std::endl;
     LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
-    if (nextEntry >= currLeaf->length) {
+    if (nextEntry >= currLeaf->length-1) {
         // need to go to a new page
         PageId nextPageNum = currLeaf->rightSibPageNo;
         if (nextPageNum == 0) { // sentinel value: no more pages left
@@ -461,8 +461,12 @@ void BTreeIndex::advanceScan()
         bufMgr->readPage(file, nextPageNum, currentPageData);
         // unpin old
         bufMgr->unPinPage(file, currentPageNum, false);
+
+        std::cout << "advanceScan() jumped from page " << currentPageNum << " to page " << nextPageNum << std::endl;
+
         currentPageNum = nextPageNum;
         nextEntry = 0;
+        return;
     }
     ++nextEntry;
 }
@@ -543,7 +547,6 @@ void BTreeIndex::scanNext(RecordId& outRid)
 {
     // Add your code below. Please do not remove this line.
 
-    std::cout << "scanNext() called." << std::endl;
     if (!scanExecuting) {
         throw ScanNotInitializedException();
     }
@@ -562,6 +565,7 @@ void BTreeIndex::scanNext(RecordId& outRid)
 
     // alright, no fail conditions hit, return the value
     outRid = currLeaf->ridArray[nextEntry];
+    std::cout << "scanNext() gives back: " << outRid.page_number << "," << outRid.slot_number << " corresponding to key " << currLeaf->keyArray[nextEntry] << std::endl;
 
     // prepare next entry
     try {
