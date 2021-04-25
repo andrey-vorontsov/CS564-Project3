@@ -54,11 +54,12 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 
     // assign file, create if needed
     // file = new BlobFile(indexName, !File::exists(indexName));		Why is this always creating a new file if it didn't previously exist?
-    std::cout<<"Created blob file"<<"\n";
     // if file has already been initialized
     if (File::exists(indexName)) {			//ISN'T THIS ALWAYS TRUE???  THERE WAS A FILE CREATED TWO LINES AGO FOR THIS FILENAME???
         // load fields from file header page
         // this assumes the file header page is at pageid 0, as noted above
+
+    std::cout<<"File exists, loading from it"<<std::endl;
 	Page* headerPage;
 	file = new BlobFile(indexName, !File::exists(indexName));
 	bufMgr->readPage(file, headerPageNum, headerPage);
@@ -66,6 +67,9 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         attributeType = meta->attrType;
         rootPageNum = meta->rootPageNo;
         // no further action
+
+        bufMgr->unPinPage(file, headerPageNum, true);
+
     } else {
 	//Changed from above if statement - REMOVE?
 	file = new BlobFile(indexName, !File::exists(indexName));

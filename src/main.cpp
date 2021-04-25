@@ -91,7 +91,6 @@ void altIndexTests();
 void createAltRelationRandom();
 void andreyTest1();
 void andreyTest2();
-void andreyTest3();
 
 int main(int argc, char **argv)
 {
@@ -160,7 +159,6 @@ int main(int argc, char **argv)
     // Andrey tests
     andreyTest1();
     andreyTest2();
-    andreyTest3();
 
 	delete bufMgr;
 
@@ -605,6 +603,7 @@ void deleteRelation()
 // =============================================================================
 
 // TEST 1
+// Note: record debug print broken, but that's fine
 // Support funcs for testing alternate attr byte offset
 
 // -----------------------------------------------------------------------------
@@ -704,7 +703,6 @@ void altIntTests()
 void andreyTest1()
 {
 	// Create a relation with tuples ***WITH A DIFFERENT ATTR OFFSET*** valued 0 to relationSize in random order and perform index tests 
-	// on attributes of all three types (int, double, string)
 	std::cout << "------------------------------------------" << std::endl;
 	std::cout << "createAltRelationRandom - alternate offset" << std::endl;
 	createAltRelationRandom();
@@ -712,9 +710,44 @@ void andreyTest1()
 	deleteRelation();
 }
 
-void indexTestsExtraInserts()
+
+// ===========================
+// Test 2 - reopen the index
+
+
+void initFile()
 {
-  intTests();
+  std::cout << "Create a B+ Tree index on the integer field with alternate indexing attr offset" << std::endl;
+  BTreeIndex index_1(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
+  // file closed once leaving scope
+}
+
+
+void closeAndReopenIntTests()
+{
+
+  initFile(); // create file 
+
+  assert(File::exists("relA.0"));
+  
+  // should reopen & contain all same stuff
+  BTreeIndex index(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
+
+    // also should print that it exists
+
+	// run some tests
+	checkPassFail(intScan(&index,25,GT,40,LT), 14)
+	checkPassFail(intScan(&index,20,GTE,35,LTE), 16)
+	checkPassFail(intScan(&index,-3,GT,3,LT), 3)
+	checkPassFail(intScan(&index,996,GT,1001,LT), 4)
+	checkPassFail(intScan(&index,0,GT,1,LT), 0)
+	checkPassFail(intScan(&index,300,GT,400,LT), 99)
+	checkPassFail(intScan(&index,3000,GTE,4000,LT), 1000)
+}
+
+void closeAndReopenIndexTests()
+{
+  closeAndReopenIntTests();
 	try
 	{
 		File::remove(intIndexName);
@@ -726,23 +759,11 @@ void indexTestsExtraInserts()
 
 void andreyTest2()
 {
-	// Create a relation with tuples ***WITH A DIFFERENT ATTR OFFSET*** valued 0 to relationSize in random order and perform index tests 
-	// on attributes of all three types (int, double, string)
-//	std::cout << "------------------------------------------" << std::endl;
-//	std::cout << "createAltRelationRandom - alternate offset" << std::endl;
-//	createAltRelationRandom();
-//	altIndexTests();
-//	deleteRelation();
-}
-
-void andreyTest3()
-{
-	// Create a relation with tuples ***WITH A DIFFERENT ATTR OFFSET*** valued 0 to relationSize in random order and perform index tests 
-	// on attributes of all three types (int, double, string)
-//	std::cout << "------------------------------------------" << std::endl;
-//	std::cout << "createAltRelationRandom - alternate offset" << std::endl;
-//	createAltRelationRandom();
-//	altIndexTests();
-//	deleteRelation();
+	// Test closing & reopening an index
+	std::cout << "------------------------------------------" << std::endl;
+	std::cout << "Test - closing and reopening the index from file" << std::endl;
+	createRelationRandom();
+    closeAndReopenIndexTests();
+	deleteRelation();
 }
 
