@@ -170,8 +170,8 @@ int main(int argc, char **argv)
     philTest3();
 
     // Andrey tests
-    //andreyTest1();
-    //andreyTest2();
+    andreyTest1();
+    andreyTest2();
 
 	delete bufMgr;
 
@@ -730,7 +730,7 @@ void andreyTest1()
 
 void initFile()
 {
-  std::cout << "Create a B+ Tree index on the integer field with alternate indexing attr offset" << std::endl;
+  std::cout << "Create a B+ Tree index file, then close & re-open it" << std::endl;
   BTreeIndex index_1(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
   // file closed once leaving scope
 }

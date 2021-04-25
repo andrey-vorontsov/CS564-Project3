@@ -48,7 +48,6 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
     std::string indexName = idxStr.str();
 
     // assign pages numbers in file
-    // TODO verify if headerPageNum and rootPageNum end up getting 0 and 1 from allocPage
     headerPageNum = 1;		//Change:  I found these to be 1 and 2, instead of 0 and 1.  
     rootPageNum = 2;		//Tested by deleting relA.0 file, running constructor and printing out allocated page numbers for header/root
 
@@ -66,7 +65,11 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         IndexMetaInfo* meta = (IndexMetaInfo*) headerPage; // cast type
         attributeType = meta->attrType;
         rootPageNum = meta->rootPageNo;
-        // no further action
+
+        if (attributeType != attrType) {
+            // this is the only constructor arg which could be inconsistent...
+            throw BadIndexInfoException("Attribute type does not match.");
+        }
 
         bufMgr->unPinPage(file, headerPageNum, true);
 
@@ -85,7 +88,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	std::cout<<"Allocated root page number: "<<rootPageNum<<"\n";
         // init metadata page
         IndexMetaInfo* meta = (IndexMetaInfo*) headerPage; // cast type
-        strcpy(meta->relationName, relationName.c_str()); // TODO unsafe string copy
+        strcpy(meta->relationName, relationName.c_str());
         meta->attrByteOffset = attrByteOffset;
         meta->attrType = attrType;
         meta->rootPageNo = rootPageNum;
@@ -143,7 +146,7 @@ BTreeIndex::~BTreeIndex()
     if (scanExecuting) {
         endScan();
     }
-    // TODO catch exceptions from flush
+    // Flush will not throw exceptions unless a page somehow remains pinned - should be cleaned up
     std::cout<<"Flushing file"<<"\n";
     bufMgr->flushFile(file);
     std::cout<<"Flushed file"<<"\n";
