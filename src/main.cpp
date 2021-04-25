@@ -85,6 +85,14 @@ void test3();
 void errorTests();
 void deleteRelation();
 
+// For Phil's Test
+void philIntTest();
+void philIntTest2();
+void philIntTest3();
+void philTest1();
+void philTest2();
+void philTest3();
+
 // For Andrey's tests
 void altIntTests();
 void altIndexTests();
@@ -155,10 +163,15 @@ int main(int argc, char **argv)
 	test2();
 	test3();
 	errorTests();
+	
+    // Phil Tests
+    philTest1();
+    philTest2();
+    philTest3();
 
     // Andrey tests
-    andreyTest1();
-    andreyTest2();
+    //andreyTest1();
+    //andreyTest2();
 
 	delete bufMgr;
 
@@ -764,6 +777,215 @@ void andreyTest2()
 	std::cout << "Test - closing and reopening the index from file" << std::endl;
 	createRelationRandom();
     closeAndReopenIndexTests();
+	deleteRelation();
+}
+
+void philIntTests()
+{
+  std::cout << "Create a B+ Tree index with forward added negative values" << std::endl;
+  BTreeIndex index(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
+  checkPassFail(intScan(&index,-5,GTE,0,LTE), 6);
+}
+
+void philTest1()
+{
+  // try adding negative values to the index and test for accuracy, specifically just negative values forward
+  std::vector<RecordId> ridVec;
+  // destroy any old copies of relation file
+	try
+	{
+		File::remove(relationName);
+	}
+	catch(const FileNotFoundException &e)
+	{
+	}
+
+  file1 = new PageFile(relationName, true);
+
+  // initialize all of record1.s to keep purify happy
+  memset(record1.s, ' ', sizeof(record1.s));
+	PageId new_page_number;
+  Page new_page = file1->allocatePage(new_page_number);
+
+  // Insert a bunch of tuples into the relation.
+  int j = -5;
+  for(int i = 0; i < 10; i++ )
+	{
+    sprintf(record1.s, "%05d string record", i);
+    record1.i = j;
+    record1.d = (double)i;
+    std::string new_data(reinterpret_cast<char*>(&record1), sizeof(record1));
+
+		while(1)
+		{
+			try
+			{
+    		new_page.insertRecord(new_data);
+				break;
+			}
+			catch(const InsufficientSpaceException &e)
+			{
+				file1->writePage(new_page_number, new_page);
+  			new_page = file1->allocatePage(new_page_number);
+			}
+		}
+   j++;
+  }
+
+	file1->writePage(new_page_number, new_page);
+	philIntTests();
+ try
+	{
+		File::remove(intIndexName);
+	}
+  catch(const FileNotFoundException &e)
+  {
+  }
+	deleteRelation();
+
+}
+
+void philIntTest2()
+{
+  std::cout << "Create a B+ Tree index with backward added negative values" << std::endl;
+  BTreeIndex index(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
+  checkPassFail(intScan(&index,-100,GTE,0,LT), 100);
+}
+
+void philTest2(){
+  //  try adding only negative values backwards
+  // destroy any old copies of relation file
+	try
+	{
+		File::remove(relationName);
+	}
+	catch(const FileNotFoundException &e)
+	{
+	}
+  file1 = new PageFile(relationName, true);
+
+  // initialize all of record1.s to keep purify happy
+  memset(record1.s, ' ', sizeof(record1.s));
+	PageId new_page_number;
+  Page new_page = file1->allocatePage(new_page_number);
+
+  // Insert a bunch of tuples into the relation.
+  int j = -100;
+  for(int i = relationSize - 1; i >= 0; i-- )
+	{
+    sprintf(record1.s, "%05d string record", i);
+    record1.i = j;
+    record1.d = j;
+
+    std::string new_data(reinterpret_cast<char*>(&record1), sizeof(RECORD));
+
+		while(1)
+		{
+			try
+			{
+    		new_page.insertRecord(new_data);
+				break;
+			}
+			catch(const InsufficientSpaceException &e)
+			{
+				file1->writePage(new_page_number, new_page);
+  			new_page = file1->allocatePage(new_page_number);
+			}
+		}
+   j++;
+  }
+
+	file1->writePage(new_page_number, new_page);
+ 
+  philIntTest2();
+ 
+   try
+	{
+		File::remove(intIndexName);
+	}
+  catch(const FileNotFoundException &e)
+  {
+  }
+	deleteRelation();
+}
+
+void philIntTest3()
+{
+  std::cout << "Create a B+ Tree index with randomly inserted negative values" << std::endl;
+  BTreeIndex index(relationName, intIndexName, bufMgr, offsetof(tuple,i), INTEGER);
+  checkPassFail(intScan(&index,-100,GTE,0,LT), 100);
+}
+
+void philTest3(){
+// try adding negative values randomly to the tree and test accuracy
+// destroy any old copies of relation file
+	try
+	{
+		File::remove(relationName);
+	}
+	catch(const FileNotFoundException &e)
+	{
+	}
+  file1 = new PageFile(relationName, true);
+
+  // initialize all of record1.s to keep purify happy
+  memset(record1.s, ' ', sizeof(record1.s));
+	PageId new_page_number;
+  Page new_page = file1->allocatePage(new_page_number);
+
+  // insert records in random order
+
+  std::vector<int> intvec(relationSize);
+  int j = -100;
+  for( int i = 0; i < relationSize; i++ )
+  {
+    intvec[i] = j;
+    j++;
+  }
+
+  long pos;
+  int val;
+	int i = 0;
+  while( i < relationSize )
+  {
+    pos = random() % (relationSize-i);
+    val = intvec[pos];
+    sprintf(record1.s, "%05d string record", val);
+    record1.i = val;
+    record1.d = val;
+
+    std::string new_data(reinterpret_cast<char*>(&record1), sizeof(RECORD));
+
+		while(1)
+		{
+			try
+			{
+    		new_page.insertRecord(new_data);
+				break;
+			}
+			catch(const InsufficientSpaceException &e)
+			{
+      	file1->writePage(new_page_number, new_page);
+  			new_page = file1->allocatePage(new_page_number);
+			}
+		}
+
+		int temp = intvec[relationSize-1-i];
+		intvec[relationSize-1-i] = intvec[pos];
+		intvec[pos] = temp;
+		i++;
+  }
+  
+	file1->writePage(new_page_number, new_page);
+  philIntTest3();
+ 
+ try
+	{
+		File::remove(intIndexName);
+	}
+  catch(const FileNotFoundException &e)
+  {
+  }
 	deleteRelation();
 }
 
