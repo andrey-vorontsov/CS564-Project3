@@ -47,10 +47,20 @@ std::string intIndexName, doubleIndexName, stringIndexName;
 // This is the structure for tuples in the base relation
 
 typedef struct tuple {
-	int i;
-	double d;
+    int i;
+    double d;
 	char s[64];
 } RECORD;
+
+
+// Andrey test
+typedef struct tuple_alt {
+    double d;
+	int i;
+	char s[64];
+} RECORD_ALT;
+
+RECORD_ALT record_alt;
 
 PageFile* file1;
 RecordId rid;
@@ -74,6 +84,14 @@ void test2();
 void test3();
 void errorTests();
 void deleteRelation();
+
+// For Andrey's tests
+void altIntTests();
+void altIndexTests();
+void createAltRelationRandom();
+void andreyTest1();
+void andreyTest2();
+void andreyTest3();
 
 int main(int argc, char **argv)
 {
@@ -138,6 +156,11 @@ int main(int argc, char **argv)
 	test2();
 	test3();
 	errorTests();
+
+    // Andrey tests
+    andreyTest1();
+    andreyTest2();
+    andreyTest3();
 
 	delete bufMgr;
 
@@ -576,3 +599,150 @@ void deleteRelation()
 	{
 	}
 }
+
+
+// Andrey tests
+// =============================================================================
+
+// TEST 1
+// Support funcs for testing alternate attr byte offset
+
+// -----------------------------------------------------------------------------
+// createAltRelationRandom
+// -----------------------------------------------------------------------------
+
+void createAltRelationRandom()
+{
+  // destroy any old copies of relation file
+	try
+	{
+		File::remove(relationName);
+	}
+	catch(const FileNotFoundException &e)
+	{
+	}
+  file1 = new PageFile(relationName, true);
+
+  // initialize all of record1.s to keep purify happy
+  memset(record_alt.s, ' ', sizeof(record_alt.s));
+	PageId new_page_number;
+  Page new_page = file1->allocatePage(new_page_number);
+
+  // insert records in random order
+
+  std::vector<int> intvec(relationSize);
+  for( int i = 0; i < relationSize; i++ )
+  {
+    intvec[i] = i;
+  }
+
+  long pos;
+  int val;
+	int i = 0;
+  while( i < relationSize )
+  {
+    pos = random() % (relationSize-i);
+    val = intvec[pos];
+    sprintf(record_alt.s, "%05d string record", val);
+    record_alt.i = val;
+    record_alt.d = val;
+
+    std::string new_data(reinterpret_cast<char*>(&record_alt), sizeof(RECORD_ALT));
+
+		while(1)
+		{
+			try
+			{
+    		new_page.insertRecord(new_data);
+				break;
+			}
+			catch(const InsufficientSpaceException &e)
+			{
+      	file1->writePage(new_page_number, new_page);
+  			new_page = file1->allocatePage(new_page_number);
+			}
+		}
+
+		int temp = intvec[relationSize-1-i];
+		intvec[relationSize-1-i] = intvec[pos];
+		intvec[pos] = temp;
+		i++;
+  }
+  
+	file1->writePage(new_page_number, new_page);
+}
+
+
+void altIndexTests()
+{
+  altIntTests();
+	try
+	{
+		File::remove(intIndexName);
+	}
+  catch(const FileNotFoundException &e)
+  {
+  }
+}
+
+
+void altIntTests()
+{
+  std::cout << "Create a B+ Tree index on the integer field with alternate indexing attr offset" << std::endl;
+  BTreeIndex index(relationName, intIndexName, bufMgr, offsetof(tuple_alt,i), INTEGER);
+
+	// run some tests
+	checkPassFail(intScan(&index,25,GT,40,LT), 14)
+	checkPassFail(intScan(&index,20,GTE,35,LTE), 16)
+	checkPassFail(intScan(&index,-3,GT,3,LT), 3)
+	checkPassFail(intScan(&index,996,GT,1001,LT), 4)
+	checkPassFail(intScan(&index,0,GT,1,LT), 0)
+	checkPassFail(intScan(&index,300,GT,400,LT), 99)
+	checkPassFail(intScan(&index,3000,GTE,4000,LT), 1000)
+}
+
+void andreyTest1()
+{
+	// Create a relation with tuples ***WITH A DIFFERENT ATTR OFFSET*** valued 0 to relationSize in random order and perform index tests 
+	// on attributes of all three types (int, double, string)
+	std::cout << "------------------------------------------" << std::endl;
+	std::cout << "createAltRelationRandom - alternate offset" << std::endl;
+	createAltRelationRandom();
+	altIndexTests();
+	deleteRelation();
+}
+
+void indexTestsExtraInserts()
+{
+  intTests();
+	try
+	{
+		File::remove(intIndexName);
+	}
+  catch(const FileNotFoundException &e)
+  {
+  }
+}
+
+void andreyTest2()
+{
+	// Create a relation with tuples ***WITH A DIFFERENT ATTR OFFSET*** valued 0 to relationSize in random order and perform index tests 
+	// on attributes of all three types (int, double, string)
+//	std::cout << "------------------------------------------" << std::endl;
+//	std::cout << "createAltRelationRandom - alternate offset" << std::endl;
+//	createAltRelationRandom();
+//	altIndexTests();
+//	deleteRelation();
+}
+
+void andreyTest3()
+{
+	// Create a relation with tuples ***WITH A DIFFERENT ATTR OFFSET*** valued 0 to relationSize in random order and perform index tests 
+	// on attributes of all three types (int, double, string)
+//	std::cout << "------------------------------------------" << std::endl;
+//	std::cout << "createAltRelationRandom - alternate offset" << std::endl;
+//	createAltRelationRandom();
+//	altIndexTests();
+//	deleteRelation();
+}
+

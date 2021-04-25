@@ -11,7 +11,6 @@
 #include <string>
 #include "string.h"
 #include <sstream>
-#include <vector>
 
 #include "types.h"
 #include "page.h"
@@ -152,6 +151,11 @@ struct NonLeafNodeInt{
    */
     int length;
 
+    /**
+     * Page number of parent node
+     */
+    PageId parentId;
+
   /**
    * Stores keys.
    */
@@ -178,6 +182,11 @@ struct LeafNodeInt{
    * Number of entries in the key array
    */
     int length;
+
+  /**
+   * Page number of the parent node
+   */
+    PageId parentId;
 
   /**
    * Stores keys.
@@ -308,13 +317,7 @@ class BTreeIndex {
    */
 	Operator	highOp;
 
-
-  /**
-    * TODO comment
-    * @return the PageId of the leaf this key ought to be in
-    * */
-    PageId traverseTree(const int key, std::vector<PageId>& traversal);
-
+	
  public:
 
   /**
@@ -341,7 +344,7 @@ class BTreeIndex {
 	 * */
 	~BTreeIndex();
 
-	
+
   /**
 	 * Insert a new entry using the pair <value,rid>. 
 	 * Start from root to recursively find out the leaf to insert the entry in. The insertion may cause splitting of leaf node.
@@ -353,8 +356,14 @@ class BTreeIndex {
 	**/
 	void insertEntry(const void* key, const RecordId rid);
 
-
-  /**
+	//CHANGE
+	void search(int my_key, PageId& leafPageNo);
+	void splitRec(PageId currId, int pushedKey, PageId leftPageNo, PageId rightPageNo);
+	int splitLeaf(const void* key, const RecordId rid, PageId nodeId, PageId &leftPageNo, PageId &rightPageNo);
+  	int splitNonLeaf(int key, PageId nodeId,PageId inputLeftId, PageId inputRightId, PageId &leftPageNo, PageId &rightPageNo);
+	void advanceScan();	
+	
+	/**
 	 * Begin a filtered scan of the index.  For instance, if the method is called 
 	 * using ("a",GT,"d",LTE) then we should seek all entries with a value 
 	 * greater than "a" and less than or equal to "d".
