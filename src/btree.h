@@ -408,13 +408,6 @@ class BTreeIndex {
 	**/
 	void insertEntry(const void* key, const RecordId rid);
 	
- /**
-  * Advances the scan to the next index so that the scan can continue
-  * Scan helper method used in StartScan and ScanNext
-  *@throws IndexScanCompletedException() when the scan has searched through all indexs
-  */
-  void advanceScan();	
-	
 	/**
 	 * Begin a filtered scan of the index.  For instance, if the method is called 
 	 * using ("a",GT,"d",LTE) then we should seek all entries with a value 
