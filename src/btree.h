@@ -16,6 +16,7 @@
 #include "page.h"
 #include "file.h"
 #include "buffer.h"
+#include <vector>
 
 namespace badgerdb
 {
@@ -130,15 +131,15 @@ struct IndexMetaInfo{
 	PageId rootPageNo;
 };
 
+/*
+Each node is a page, so once we read the page in we just cast the pointer to the page to this struct and use it to access the parts
+These structures basically are the format in which the information is stored in the pages for the index file depending on what kind of 
+node they are. The leaf member is always false for non-leaf nodes, always true for leaf nodes. The length member is the number of
+indices in the key array which have been initialized with keys. The leaf nodes have an additional sibling pointer.
+*/
 
 /**
  * @brief Structure for all non-leaf nodes when the key is of INTEGER type.
- *
- * Each node is a page, so once we read the page in we just cast the pointer to the page to this struct and use it to access the parts
- * These structures basically are the format in which the information is stored in the pages for the index file depending on what kind of 
- * node they are. The leaf member is always false for non-leaf nodes, always true for leaf nodes. The length member is the number of
- * indices in the key array which have been initialized with keys. The leaf nodes have an additional sibling pointer, and all nodes 
- * also record a parent pointer.
 */
 struct NonLeafNodeInt{
   /**
@@ -151,10 +152,6 @@ struct NonLeafNodeInt{
    */
     int length;
 
-    /**
-     * Page number of parent node
-     */
-    PageId parentId;
 
   /**
    * Stores keys.
@@ -170,12 +167,6 @@ struct NonLeafNodeInt{
 
 /**
  * @brief Structure for all leaf nodes when the key is of INTEGER type.
- *
- * Each node is a page, so once we read the page in we just cast the pointer to the page to this struct and use it to access the parts
- * These structures basically are the format in which the information is stored in the pages for the index file depending on what kind of 
- * node they are. The leaf member is always false for non-leaf nodes, always true for leaf nodes. The length member is the number of
- * indices in the key array which have been initialized with keys. The leaf nodes have an additional sibling pointer, and all nodes 
- * also record a parent pointer.
 */
 struct LeafNodeInt{
 
@@ -189,10 +180,6 @@ struct LeafNodeInt{
    */
     int length;
 
-  /**
-   * Page number of the parent node
-   */
-    PageId parentId;
 
   /**
    * Stores keys.
@@ -324,52 +311,52 @@ class BTreeIndex {
 	Operator	highOp;
 
    /**
-  * BTree Traversal Method
-  * Used to traverse the tree to find the correct leaf or node that contains the key
-  * @param key        key that is used to find the correct leaf
-  * @param traversal    variable used for saving where in the traversal process one is    
-  */
-  PageId traverseTree(const int key, std::vector<PageId>& traversal);
-  
- /**
-  * Split method for when a split is required
-  * Used in conjunction with splitLeaf and splitNonLeaf for handling any splitting that must occur
-  * @param currId          current Page id of the node needing to be split
-  * @param pushedKey       key to be used for recursively splitting up the tree
-  * @param leftPageNo      pointer to the left sibling
-  * @param rightPageNo     pointer to the right sibling
-  */
-  void splitRec(PageId currId, int pushedKey, PageId leftPageNo, PageId rightPageNo);
-	
- /**
-  * Should split leaf node to allow adding of another key
-  * Helper split method for splitting leafs, ie when root is the only page or when leaf node is full
-  * @param rid
-  * @param nodeId
-  * @param leftPageNo
-  * @param rightPageNo
-  */
-  int splitLeaf(const void* key, const RecordId rid, PageId nodeId, PageId &leftPageNo, PageId &rightPageNo);
-	
- /**
-  * Should split non leaf nodes to allow for adding of another key
-  * Helper split method for splitting non leafs
-  * @param key              key to be added after splitting
-  * @param nodeId           node currently being split
-  * @param inputLeftId      left sibling pointer 
-  * @param inputRightId     left sibling pointer
-  * @param leftPageNo       Pagenumber of the left node just created
-  * @param rightPageNo      Page number of the right node just created
-  */
-  int splitNonLeaf(int key, PageId nodeId,PageId inputLeftId, PageId inputRightId, PageId &leftPageNo, PageId &rightPageNo);
-   
- /**
-  * Private helper function to isolate logic of moving scan forward.
-  * Handles updating scan state without needing logic of scan bounds (lowVal/highVal).
-  * @throws IndexScanCompletedException if reaches end of index (this exception interpreted differently in startScan)
-  */ 
-	void advanceScan();	
-	
+   * BTree Traversal Method
+   * Used to traverse the tree to find the correct leaf or node that contains the key
+   * @param key        key that is used to find the correct leaf
+   * @param traversal    variable used for saving where in the traversal process one is    
+   */	
+	PageId traverseTree(const int key, std::vector<PageId>& traversal);
+
+   /**
+   * Split method for when a split is required
+   * Used in conjunction with splitLeaf and splitNonLeaf for handling any splitting that must occur
+   * @param currId          current Page id of the node needing to be split
+   * @param pushedKey       key to be used for recursively splitting up the tree
+   * @param leftPageNo      pointer to the left sibling
+   * @param rightPageNo     pointer to the right sibling
+   */
+	void splitRec(int pushedKey, PageId leftPageNo, PageId rightPageNo, int traversalIndex, std::vector<PageId> traversal);
+
+   /**
+   * Should split leaf node to allow adding of another key
+   * Helper split method for splitting leafs, ie when root is the only page or when leaf node is full
+   * @param rid
+   * @param nodeId
+   * @param leftPageNo
+   * @param rightPageNo
+   */
+    int splitLeaf(const void* key, const RecordId rid, PageId nodeId, PageId &leftPageNo, PageId &rightPageNo);
+
+   /**
+   * Should split non leaf nodes to allow for adding of another key
+   * Helper split method for splitting non leafs
+   * @param key              key to be added after splitting
+   * @param nodeId           node currently being split
+   * @param inputLeftId      left sibling pointer 
+   * @param inputRightId     left sibling pointer
+   * @param leftPageNo       Pagenumber of the left node just created
+   * @param rightPageNo      Page number of the right node just created
+   */
+  	int splitNonLeaf(int key, PageId nodeId,PageId inputLeftId, PageId inputRightId, PageId &leftPageNo, PageId &rightPageNo);
+
+   /**
+   * Private helper function to isolate logic of moving scan forward.
+   * Handles updating scan state without needing logic of scan bounds (lowVal/highVal).
+   * @throws IndexScanCompletedException if reaches end of index (this exception interpreted differently in startScan)
+   */ 
+	void advanceScan();
+
  public:
 
   /**
@@ -407,6 +394,7 @@ class BTreeIndex {
    * @param rid			Record ID of a record whose entry is getting inserted into the index.
 	**/
 	void insertEntry(const void* key, const RecordId rid);
+
 	
 	/**
 	 * Begin a filtered scan of the index.  For instance, if the method is called 
