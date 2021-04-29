@@ -811,7 +811,6 @@ void BTreeIndex::startScan(const void* lowValParm,
     highOp = highOpParm;
 
     //Find the leaf that would contain low val int key
-    PageId currentPageNum;
     std::vector<PageId> traversal;
     currentPageNum = traverseTree(lowValInt, traversal);
 
@@ -838,7 +837,7 @@ void BTreeIndex::startScan(const void* lowValParm,
     }
     // successfully started to scan; nextEntry from scanNext will be first in range
     scanExecuting = true;
-    std::cout<<"currentPageNum after startScan(): "<<currentPageNum<<"\n";
+    std::cout<<"CP#: "<<currentPageNum<<"\n";
 }
 
 // -----------------------------------------------------------------------------
