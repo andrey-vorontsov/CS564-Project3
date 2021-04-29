@@ -16,6 +16,7 @@
 #include "page.h"
 #include "file.h"
 #include "buffer.h"
+#include <vector>
 
 namespace badgerdb
 {
@@ -151,10 +152,6 @@ struct NonLeafNodeInt{
    */
     int length;
 
-    /**
-     * Page number of parent node
-     */
-    PageId parentId;
 
   /**
    * Stores keys.
@@ -183,10 +180,6 @@ struct LeafNodeInt{
    */
     int length;
 
-  /**
-   * Page number of the parent node
-   */
-    PageId parentId;
 
   /**
    * Stores keys.
@@ -358,8 +351,9 @@ class BTreeIndex {
 
 	//CHANGE
 	void search(int my_key, PageId& leafPageNo);
-	void splitRec(PageId currId, int pushedKey, PageId leftPageNo, PageId rightPageNo);
+	void splitRec(int pushedKey, PageId leftPageNo, PageId rightPageNo, int traversalIndex, std::vector<PageId> traversal);
 	int splitLeaf(const void* key, const RecordId rid, PageId nodeId, PageId &leftPageNo, PageId &rightPageNo);
+	PageId traverseTree(const int key, std::vector<PageId>& traversal);
   	int splitNonLeaf(int key, PageId nodeId,PageId inputLeftId, PageId inputRightId, PageId &leftPageNo, PageId &rightPageNo);
 	void advanceScan();	
 	
