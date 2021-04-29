@@ -411,6 +411,7 @@ class BTreeIndex {
  /**
   * Advances the scan to the next index so that the scan can continue
   * Scan helper method used in StartScan and ScanNext
+	*@throws IndexScanCompletedException() when the scan has searched through all indexs
   */
   void advanceScan();	
 	
