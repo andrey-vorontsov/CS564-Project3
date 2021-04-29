@@ -326,10 +326,10 @@ class BTreeIndex {
    /**
   * BTree Traversal Method
   * Used to traverse the tree to find the correct leaf or node that contains the key
-  * @param my_key        key that is used to find the correct leaf
-  * @param leafPageNo    the Page number of the correct leaf    
+  * @param key        key that is used to find the correct leaf
+  * @param traversal    variable used for saving where in the traversal process one is    
   */
-  void search(int my_key, PageId& leafPageNo);
+  PageId traverseTree(const int key, std::vector<PageId>& traversal);
   
  /**
   * Split method for when a split is required
