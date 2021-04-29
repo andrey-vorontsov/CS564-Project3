@@ -324,10 +324,50 @@ class BTreeIndex {
 	Operator	highOp;
 
    /**
-    * Private helper function to isolate logic of moving scan forward.
-    * Handles updating scan state without needing logic of scan bounds (lowVal/highVal).
-    * @throws IndexScanCompletedException if reaches end of index (this exception interpreted differently in startScan)
-    */ 
+  * BTree Traversal Method
+  * Used to traverse the tree to find the correct leaf or node that contains the key
+  * @param my_key        key that is used to find the correct leaf
+  * @param leafPageNo    the Page number of the correct leaf    
+  */
+  void search(int my_key, PageId& leafPageNo);
+  
+ /**
+  * Split method for when a split is required
+  * Used in conjunction with splitLeaf and splitNonLeaf for handling any splitting that must occur
+  * @param currId          current Page id of the node needing to be split
+  * @param pushedKey       key to be used for recursively splitting up the tree
+  * @param leftPageNo      pointer to the left sibling
+  * @param rightPageNo     pointer to the right sibling
+  */
+  void splitRec(PageId currId, int pushedKey, PageId leftPageNo, PageId rightPageNo);
+	
+ /**
+  * Should split leaf node to allow adding of another key
+  * Helper split method for splitting leafs, ie when root is the only page or when leaf node is full
+  * @param rid
+  * @param nodeId
+  * @param leftPageNo
+  * @param rightPageNo
+  */
+  int splitLeaf(const void* key, const RecordId rid, PageId nodeId, PageId &leftPageNo, PageId &rightPageNo);
+	
+ /**
+  * Should split non leaf nodes to allow for adding of another key
+  * Helper split method for splitting non leafs
+  * @param key              key to be added after splitting
+  * @param nodeId           node currently being split
+  * @param inputLeftId      left sibling pointer 
+  * @param inputRightId     left sibling pointer
+  * @param leftPageNo       Pagenumber of the left node just created
+  * @param rightPageNo      Page number of the right node just created
+  */
+  int splitNonLeaf(int key, PageId nodeId,PageId inputLeftId, PageId inputRightId, PageId &leftPageNo, PageId &rightPageNo);
+   
+ /**
+  * Private helper function to isolate logic of moving scan forward.
+  * Handles updating scan state without needing logic of scan bounds (lowVal/highVal).
+  * @throws IndexScanCompletedException if reaches end of index (this exception interpreted differently in startScan)
+  */ 
 	void advanceScan();	
 	
  public:
@@ -367,46 +407,6 @@ class BTreeIndex {
    * @param rid			Record ID of a record whose entry is getting inserted into the index.
 	**/
 	void insertEntry(const void* key, const RecordId rid);
-
- /**
-  * BTree Traversal Method
-  * Used to traverse the tree to find the correct leaf or node that contains the key
-  * @param my_key        key that is used to find the correct leaf
-  * @param leafPageNo    the Page number of the correct leaf    
-  */
-  void search(int my_key, PageId& leafPageNo);
-  
- /**
-  * Split method for when a split is required
-  * Used in conjunction with splitLeaf and splitNonLeaf for handling any splitting that must occur
-  * @param currId          current Page id of the node needing to be split
-  * @param pushedKey       key to be used for recursively splitting up the tree
-  * @param leftPageNo      pointer to the left sibling
-  * @param rightPageNo     pointer to the right sibling
-  */
-  void splitRec(PageId currId, int pushedKey, PageId leftPageNo, PageId rightPageNo);
-	
- /**
-  * Should split leaf node to allow adding of another key
-  * Helper split method for splitting leafs, ie when root is the only page or when leaf node is full
-  * @param rid
-  * @param nodeId
-  * @param leftPageNo
-  * @param rightPageNo
-  */
-  int splitLeaf(const void* key, const RecordId rid, PageId nodeId, PageId &leftPageNo, PageId &rightPageNo);
-	
- /**
-  * Should split non leaf nodes to allow for adding of another key
-  * Helper split method for splitting non leafs
-  * @param key              key to be added after splitting
-  * @param nodeId           node currently being split
-  * @param inputLeftId      left sibling pointer 
-  * @param inputRightId     left sibling pointer
-  * @param leftPageNo       Pagenumber of the left node just created
-  * @param rightPageNo      Page number of the right node just created
-  */
-  int splitNonLeaf(int key, PageId nodeId,PageId inputLeftId, PageId inputRightId, PageId &leftPageNo, PageId &rightPageNo);
 	
  /**
   * Advances the scan to the next index so that the scan can continue
