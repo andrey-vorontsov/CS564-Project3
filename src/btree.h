@@ -130,15 +130,15 @@ struct IndexMetaInfo{
 	PageId rootPageNo;
 };
 
-/*
-Each node is a page, so once we read the page in we just cast the pointer to the page to this struct and use it to access the parts
-These structures basically are the format in which the information is stored in the pages for the index file depending on what kind of 
-node they are. The leaf member is always false for non-leaf nodes, always true for leaf nodes. The length member is the number of
-indices in the key array which have been initialized with keys. The leaf nodes have an additional sibling pointer.
-*/
 
 /**
  * @brief Structure for all non-leaf nodes when the key is of INTEGER type.
+ *
+ * Each node is a page, so once we read the page in we just cast the pointer to the page to this struct and use it to access the parts
+ * These structures basically are the format in which the information is stored in the pages for the index file depending on what kind of 
+ * node they are. The leaf member is always false for non-leaf nodes, always true for leaf nodes. The length member is the number of
+ * indices in the key array which have been initialized with keys. The leaf nodes have an additional sibling pointer, and all nodes 
+ * also record a parent pointer.
 */
 struct NonLeafNodeInt{
   /**
@@ -170,6 +170,12 @@ struct NonLeafNodeInt{
 
 /**
  * @brief Structure for all leaf nodes when the key is of INTEGER type.
+ *
+ * Each node is a page, so once we read the page in we just cast the pointer to the page to this struct and use it to access the parts
+ * These structures basically are the format in which the information is stored in the pages for the index file depending on what kind of 
+ * node they are. The leaf member is always false for non-leaf nodes, always true for leaf nodes. The length member is the number of
+ * indices in the key array which have been initialized with keys. The leaf nodes have an additional sibling pointer, and all nodes 
+ * also record a parent pointer.
 */
 struct LeafNodeInt{
 
@@ -317,6 +323,12 @@ class BTreeIndex {
    */
 	Operator	highOp;
 
+   /**
+    * Private helper function to isolate logic of moving scan forward.
+    * Handles updating scan state without needing logic of scan bounds (lowVal/highVal).
+    * @throws IndexScanCompletedException if reaches end of index (this exception interpreted differently in startScan)
+    */ 
+	void advanceScan();	
 	
  public:
 
@@ -356,12 +368,11 @@ class BTreeIndex {
 	**/
 	void insertEntry(const void* key, const RecordId rid);
 
-	//CHANGE
+	//CHANGE - TODO move these to private?
 	void search(int my_key, PageId& leafPageNo);
 	void splitRec(PageId currId, int pushedKey, PageId leftPageNo, PageId rightPageNo);
 	int splitLeaf(const void* key, const RecordId rid, PageId nodeId, PageId &leftPageNo, PageId &rightPageNo);
   	int splitNonLeaf(int key, PageId nodeId,PageId inputLeftId, PageId inputRightId, PageId &leftPageNo, PageId &rightPageNo);
-	void advanceScan();	
 	
 	/**
 	 * Begin a filtered scan of the index.  For instance, if the method is called 

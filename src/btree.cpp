@@ -62,7 +62,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	Page* headerPage;
 	file = new BlobFile(indexName, !File::exists(indexName));
 	bufMgr->readPage(file, headerPageNum, headerPage);
-        IndexMetaInfo* meta = (IndexMetaInfo*) headerPage; // cast type
+        IndexMetaInfo* meta = reinterpret_cast<IndexMetaInfo*>(headerPage); // cast type
         attributeType = meta->attrType;
         rootPageNum = meta->rootPageNo;
 
@@ -87,14 +87,14 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 	std::cout<<"Allocated page number header: "<<headerPageNum<<"\n";
 	std::cout<<"Allocated root page number: "<<rootPageNum<<"\n";
         // init metadata page
-        IndexMetaInfo* meta = (IndexMetaInfo*) headerPage; // cast type
+        IndexMetaInfo* meta = reinterpret_cast<IndexMetaInfo*>(headerPage); // cast type
         strcpy(meta->relationName, relationName.c_str());
         meta->attrByteOffset = attrByteOffset;
         meta->attrType = attrType;
         meta->rootPageNo = rootPageNum;
         
 	// init root page? 
-        LeafNodeInt* root = (LeafNodeInt*) rootPage; // cast type
+        LeafNodeInt* root = reinterpret_cast<LeafNodeInt*>(rootPage); // cast type
 	root->parentId = headerPageNum;
         root->leaf = true;
         root->length = 0;
@@ -160,7 +160,7 @@ int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, Page
     bufMgr->readPage(file,nodeId,node);
  
     //Cast to NonLeafNode to check length
-    NonLeafNodeInt* curr = (NonLeafNodeInt*) node;
+    NonLeafNodeInt* curr = reinterpret_cast<NonLeafNodeInt*>(node);
 
     assert((curr->leaf==false));
 
@@ -177,8 +177,8 @@ int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, Page
     if(curr->parentId == headerPageNum){
     	bufMgr->allocPage(file, leftPageNo, leftPage);
 	bufMgr->allocPage(file, rightPageNo, rightPage);
-	rightNode = (NonLeafNodeInt*) rightPage;
-	leftNode = (NonLeafNodeInt*) leftPage;
+	rightNode = reinterpret_cast<NonLeafNodeInt*>(rightPage);
+	leftNode = reinterpret_cast<NonLeafNodeInt*>(leftPage);
 	//Set parameters on new pages
 	rightNode->leaf=false;
 	leftNode->leaf=false;
@@ -208,7 +208,7 @@ int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, Page
     else{
 
    	bufMgr->allocPage(file,leftPageNo,leftPage);
-	NonLeafNodeInt* leftNode = (NonLeafNodeInt*)leftPage;
+	NonLeafNodeInt* leftNode = reinterpret_cast<NonLeafNodeInt*>(leftPage);
 
 	rightNode = curr;
 	//Reuse the inputted page as the right page -> move values to the left page from right
@@ -330,7 +330,7 @@ int BTreeIndex::splitLeaf(const void* key, const RecordId rid, PageId nodeId, Pa
 
     Page* node;
     bufMgr->readPage(file,nodeId,node);
-    LeafNodeInt* currLeaf = (LeafNodeInt*) node;
+    LeafNodeInt* currLeaf = reinterpret_cast<LeafNodeInt*>(node);
     
     assert(currLeaf->leaf);
 
@@ -348,8 +348,8 @@ int BTreeIndex::splitLeaf(const void* key, const RecordId rid, PageId nodeId, Pa
 	//Allocate two pages for the left and right
 	bufMgr->allocPage(file, leftPageNo, leftPage);
 	bufMgr->allocPage(file, rightPageNo, rightPage);
-	rightLeaf = (LeafNodeInt*)rightPage;
-	leftLeaf = (LeafNodeInt*)leftPage;
+	rightLeaf = reinterpret_cast<LeafNodeInt*>(rightPage);
+	leftLeaf = reinterpret_cast<LeafNodeInt*>(leftPage);
         //Set parameters for leaves
 	rightLeaf->leaf = true;
 	leftLeaf->leaf = true;
@@ -378,7 +378,7 @@ int BTreeIndex::splitLeaf(const void* key, const RecordId rid, PageId nodeId, Pa
         //The inputted node needs to be changed to the rightLeaf by moving the 
         //indexes smaller than splitIndex to the left node.  This maintains pageIds
 	bufMgr->allocPage(file, rightPageNo, rightPage);
-	rightLeaf = (LeafNodeInt*)rightPage;
+	rightLeaf = reinterpret_cast<LeafNodeInt*>(rightPage);
 
 	leftLeaf = currLeaf;
         leftPageNo = nodeId; 
@@ -481,7 +481,7 @@ int BTreeIndex::splitLeaf(const void* key, const RecordId rid, PageId nodeId, Pa
 void BTreeIndex::splitRec(PageId currId, int pushedKey, PageId leftPageNo, PageId rightPageNo){
     Page* currPage;
     bufMgr->readPage(file, currId, currPage);
-    NonLeafNodeInt* curr = (NonLeafNodeInt*)currPage;
+    NonLeafNodeInt* curr = reinterpret_cast<NonLeafNodeInt*>(currPage);
     //Base case 1: Root must be a non-leaf (and is full)
     //can only get here once after the root is split
     //Base case 1:  Root is a leaf
@@ -562,7 +562,7 @@ void BTreeIndex::search(int my_key, PageId& leafPageNo){
     //Root must not be leaf node
     Page* rootPage;
     bufMgr->readPage(file, rootPageNum, rootPage);
-    NonLeafNodeInt* root = (NonLeafNodeInt*) rootPage;
+    NonLeafNodeInt* root = reinterpret_cast<NonLeafNodeInt*>(rootPage);
     if(root->leaf){
 	// root is the leaf, just return root as leaf.
 	leafPageNo = rootPageNum;
@@ -582,7 +582,7 @@ void BTreeIndex::search(int my_key, PageId& leafPageNo){
                    // go to next non-leaf node
                    PageId nextPageNo = curr->pageNoArray[i];
 		   bufMgr->readPage(file, nextPageNo, currPage);
-                   curr = (NonLeafNodeInt*) currPage;
+                   curr = reinterpret_cast<NonLeafNodeInt*>(currPage);
 		   bufMgr->unPinPage(file, currPageNo, false);
                    currPageNo = nextPageNo;
                    //Should not check the new current node's key array below.
@@ -596,7 +596,7 @@ void BTreeIndex::search(int my_key, PageId& leafPageNo){
             if (!twiceLock && my_key > curr->keyArray[curr->length - 1]) {
                PageId nextPageNo = curr->pageNoArray[curr->length];
                bufMgr->readPage(file, nextPageNo, currPage);
-               curr = (NonLeafNodeInt*) currPage;
+               curr = reinterpret_cast<NonLeafNodeInt*>(currPage);
                bufMgr->unPinPage(file, currPageNo, false);
                currPageNo = nextPageNo;
             }
@@ -626,7 +626,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
     //Read in leaf
     Page* leafPage;
     bufMgr->readPage(file,leafPageNo,leafPage);
-    LeafNodeInt* leaf = (LeafNodeInt*)leafPage; 
+    LeafNodeInt* leaf = reinterpret_cast<LeafNodeInt*>(leafPage);
     // try to insert key,rid pair in L
     if (leaf->length < leafOccupancy) {
 	int insertIndex = -1;
@@ -684,7 +684,7 @@ void BTreeIndex::insertEntry(const void *key, const RecordId rid)
 // Private helper - move the scan to the next entry
 void BTreeIndex::advanceScan()
 {
-    LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
+    LeafNodeInt* currLeaf = reinterpret_cast<LeafNodeInt*>(currentPageData);
     if (nextEntry >= currLeaf->length-1) {
         // need to go to a new page
         PageId nextPageNum = currLeaf->rightSibPageNo;
@@ -706,7 +706,7 @@ void BTreeIndex::advanceScan()
         // unpin old
 /**	
 	//TESTING
-	LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
+	LeafNodeInt* currLeaf = reinterpret_cast<LeafNodeInt*>(currentPageData);
 	std::cout<<"start printing keyArray next Leaf\n";
 	for(int i=0;i<currLeaf->length;i++){
 	    std::cout<<"curr key array[i]: "<<currLeaf->keyArray[i]<<"\n";
@@ -759,7 +759,7 @@ void BTreeIndex::startScan(const void* lowValParm,
     search(lowValInt, currentPageNum);
     bufMgr->readPage(file, currentPageNum, currentPageData);
 
-    LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
+    LeafNodeInt* currLeaf = reinterpret_cast<LeafNodeInt*>(currentPageData);
     // locate the first entry that matches criteria
     nextEntry = 0;
     while ((lowOp == GT && !(currLeaf->keyArray[nextEntry] > lowValInt))
@@ -798,7 +798,7 @@ void BTreeIndex::scanNext(RecordId& outRid)
     if (nextEntry == -1) {
         throw IndexScanCompletedException();
     }
-    LeafNodeInt* currLeaf = (LeafNodeInt*)currentPageData;
+    LeafNodeInt* currLeaf = reinterpret_cast<LeafNodeInt*>(currentPageData);
 
     // if highValInt reached, also exception
     if ((highOp == LT && !(currLeaf->keyArray[nextEntry] < highValInt))
@@ -816,7 +816,7 @@ void BTreeIndex::scanNext(RecordId& outRid)
     catch (IndexScanCompletedException &e) {
         // nextEntry will be -1: next time we scan, will except
     }
-    currLeaf = (LeafNodeInt*)currentPageData;
+    currLeaf = reinterpret_cast<LeafNodeInt*>(currentPageData);
 }
 
 // -----------------------------------------------------------------------------
