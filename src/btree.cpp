@@ -36,7 +36,8 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
   bufMgr = bufMgrIn;
   this->attrByteOffset = attrByteOffset;
   std::cout<<"Attrbyteoffset: "<<attrByteOffset<<"\n";
-  attributeType = INTEGER; // attrType parameter ignored for this assignment
+	// attrType parameter ignored for this assignment
+  attributeType = INTEGER;
   leafOccupancy = INTARRAYLEAFSIZE;
   nodeOccupancy = INTARRAYNONLEAFSIZE;
   std::cout<<"leaf occupancy: "<<leafOccupancy<<"\n";
@@ -67,7 +68,6 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 
     if (attributeType != attrType) 
     {
-      // this is the only constructor arg which could be inconsistent...
       throw BadIndexInfoException("Attribute type does not match.");
     }
 
@@ -75,7 +75,6 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 
     } else 
     {
-	    //Changed from above if statement - REMOVE?
 	    file = new BlobFile(indexName, !File::exists(indexName));
 	    std::cout<<"File doesn't exist, creating file"<<"\n";
       // need to init metadata and root pages in file
@@ -253,7 +252,7 @@ int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, Page
   if(my_key < rightNode->keyArray[0])
   {
 
-    //Put this in a helper method.  I'm not sure how to define helper methods without
+    // TODO: Put this in a helper method.  I'm not sure how to define helper methods without
     //adding the method to the btree.  There has to be a way..
     //This is copied from splitRec as well -> remove?
     //Insert in the left leaf
