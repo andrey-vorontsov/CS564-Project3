@@ -64,7 +64,8 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         IndexMetaInfo* meta = (IndexMetaInfo*) headerPage; // cast type
         attributeType = meta->attrType;
         rootPageNum = meta->rootPageNo;
-        // no further action
+        bufMgr->unPinPage(file,headerPageNum,true);
+       	// no further action
     } else {
 	//Changed from above if statement - REMOVE?
 	file = new BlobFile(indexName, !File::exists(indexName));
@@ -141,29 +142,6 @@ BTreeIndex::~BTreeIndex()
     delete file;
 }
 
-/*
- * Probably delete, trying to use traversal instead
-PageId BTreeIndex::findParent(int refKey, PageId childId){
-    Page* currPage;
-    //Read in root to start search
-    bufMgr->readPage(file,rootPageNum,currPage);
-    NonLeafNodeInt* curr = (NonLeafNodeInt*)currPage;
-    
-    //Make sure this isn't a leaf node.
-    assert(curr->leaf==false);
-    
-    int foundParent = 0;
-    while(foundParent==false){
-	//See if the current page has a pageId of the childId - then current page is parent
-	for(int i=0;i<curr->length;i++){
-	    if(curr->pageNoArray[i] == childId){
-		return curr
-	}
-    }
-}
-*/
-
-
 //DELETE THE RIGHT PAGE NO INPUT -> TESTING TO MAKE SURE IT IS EQUAL TO THE NODE ID
 int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, PageId inputRightId, PageId &leftPageNo, PageId &rightPageNo){
     std::cout<<"splitting non leaf\n";
@@ -211,18 +189,29 @@ int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, Page
 	    rightNode->pageNoArray[i-(splitIndex+1)] = curr->pageNoArray[i];
 	    rightNode->length += 1;
 	}
+	//Set last page no to the rightNode
+	rightNode->pageNoArray[rightNode->length] = curr->pageNoArray[constLength];
+	for(int i=0;i<rightNode->length;i++){
+	    std::cout<<"right node key array[i]: "<<rightNode->keyArray[i]<<" pageNoArray[i]: "<<rightNode->pageNoArray[i]<<"\n";
+	}
+	std::cout<<"last page no right: "<<rightNode->pageNoArray[rightNode->length]<<"\n";
+	for(int i=0;i<leftNode->length;i++){
+            std::cout<<"left node key array[i]: "<<leftNode->keyArray[i]<<" pageNoArray[i]: "<<leftNode->pageNoArray[i]<<"\n";
+        }
+	std::cout<<"last page no left: "<<leftNode->pageNoArray[leftNode->length]<<"\n";
 	//Unpin/save curr(root)
 	bufMgr->unPinPage(file, nodeId, true);
     }
 
     else{
-	//Allocate a new page for the right page, move the elements in the left page to the right page.
-   	bufMgr->allocPage(file,rightPageNo,leftPage);
-	NonLeafNodeInt* rightNode = (NonLeafNodeInt*)rightPage;
+    	//Allocate a new page for the right page, move the elements in the left page to the right page.
+   	bufMgr->allocPage(file,rightPageNo,rightPage);
+	rightNode = (NonLeafNodeInt*)rightPage;
 
 	leftNode = curr;
 	//Reuse the inputted page as the right page -> move values to the left page from right
 	leftPageNo = nodeId;
+	std::cout<<"left page no: "<<leftPageNo<<" right page no: "<<rightPageNo<<"\n";
 	//Set parameters for left/right nodes
 	rightNode->leaf = false;
 	leftNode->leaf = false;
@@ -577,7 +566,9 @@ PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>& traversal)
 
     // init traversal vector
     traversal.clear();
-
+    if(root->length==1){
+	std::cout<<"root lenght one.  left page no: "<<root->pageNoArray[0]<<" right page no: "<<root->pageNoArray[1]<<"\n";
+    }
     // find leaf page L where key belongs
     if (root->leaf) {
         // root is the leaf, just return the root
@@ -782,7 +773,6 @@ void BTreeIndex::startScan(const void* lowValParm,
     }
     // successfully started to scan; nextEntry from scanNext will be first in range
     scanExecuting = true;
-    std::cout<<"CP#: "<<currentPageNum<<"\n";
 }
 
 // -----------------------------------------------------------------------------
@@ -791,7 +781,6 @@ void BTreeIndex::startScan(const void* lowValParm,
 
 void BTreeIndex::scanNext(RecordId& outRid) 
 {
-    std::cout<<"current page no: "<<currentPageNum<<"\n";
     // Add your code below. Please do not remove this line.
     if (!scanExecuting) {
         throw ScanNotInitializedException();
