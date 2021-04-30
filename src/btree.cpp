@@ -36,12 +36,12 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
 
     bufMgr = bufMgrIn;
     this->attrByteOffset = attrByteOffset;
-    std::cout<<"Attrbyteoffset: "<<attrByteOffset<<"\n";
+    //std::cout<<"Attrbyteoffset: "<<attrByteOffset<<"\n";
     attributeType = INTEGER; // attrType parameter ignored for this assignment
     leafOccupancy = INTARRAYLEAFSIZE;
     nodeOccupancy = INTARRAYNONLEAFSIZE;
-    std::cout<<"leaf occupancy: "<<leafOccupancy<<"\n";
-    std::cout<<"node occupancy: "<<nodeOccupancy<<"\n";
+    //std::cout<<"leaf occupancy: "<<leafOccupancy<<"\n";
+    //std::cout<<"node occupancy: "<<nodeOccupancy<<"\n";
     // indexName is the name of the index file
     std::ostringstream idxStr;
     idxStr << relationName << '.' << attrByteOffset;
@@ -68,7 +68,7 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
     } else {
 	//Changed from above if statement - REMOVE?
 	file = new BlobFile(indexName, !File::exists(indexName));
-	std::cout<<"File doesn't exist, creating file"<<"\n";
+	//std::cout<<"File doesn't exist, creating file"<<"\n";
         // need to init metadata and root pages in file
         // assumption of only integer keys is made
 	    Page* headerPage;
@@ -76,8 +76,8 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
         bufMgr->allocPage(file, headerPageNum, headerPage);
         bufMgr->allocPage(file, rootPageNum, rootPage);
 	
-	std::cout<<"Allocated page number header: "<<headerPageNum<<"\n";
-	std::cout<<"Allocated root page number: "<<rootPageNum<<"\n";
+	//std::cout<<"Allocated page number header: "<<headerPageNum<<"\n";
+	//std::cout<<"Allocated root page number: "<<rootPageNum<<"\n";
         // init metadata page
         IndexMetaInfo* meta = (IndexMetaInfo*) headerPage; // cast type
         strcpy(meta->relationName, relationName.c_str()); 
@@ -143,7 +143,7 @@ BTreeIndex::~BTreeIndex()
 
 //DELETE THE RIGHT PAGE NO INPUT -> TESTING TO MAKE SURE IT IS EQUAL TO THE NODE ID
 int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, PageId inputRightId, PageId &leftPageNo, PageId &rightPageNo){
-    std::cout<<"splitting non leaf\n";
+    //std::cout<<"splitting non leaf\n";
     Page* node;
     bufMgr->readPage(file,nodeId,node);
  
@@ -154,7 +154,7 @@ int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, Page
 
     int splitIndex = (int)(curr->length/2);
     int pushedValue = curr->keyArray[splitIndex];
-    std::cout<<"pushed value: "<<pushedValue<<"\n";
+    //std::cout<<"pushed value: "<<pushedValue<<"\n";
 
     //The left and right pages are leaves because the split node was a leaf.
     Page* rightPage;
@@ -191,13 +191,13 @@ int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, Page
 	//Set last page no to the rightNode
 	rightNode->pageNoArray[rightNode->length] = curr->pageNoArray[constLength];
 	for(int i=0;i<rightNode->length;i++){
-	    std::cout<<"right node key array[i]: "<<rightNode->keyArray[i]<<" pageNoArray[i]: "<<rightNode->pageNoArray[i]<<"\n";
+	    //std::cout<<"right node key array[i]: "<<rightNode->keyArray[i]<<" pageNoArray[i]: "<<rightNode->pageNoArray[i]<<"\n";
 	}
-	std::cout<<"last page no right: "<<rightNode->pageNoArray[rightNode->length]<<"\n";
+	//std::cout<<"last page no right: "<<rightNode->pageNoArray[rightNode->length]<<"\n";
 	for(int i=0;i<leftNode->length;i++){
-            std::cout<<"left node key array[i]: "<<leftNode->keyArray[i]<<" pageNoArray[i]: "<<leftNode->pageNoArray[i]<<"\n";
+            //std::cout<<"left node key array[i]: "<<leftNode->keyArray[i]<<" pageNoArray[i]: "<<leftNode->pageNoArray[i]<<"\n";
         }
-	std::cout<<"last page no left: "<<leftNode->pageNoArray[leftNode->length]<<"\n";
+	//std::cout<<"last page no left: "<<leftNode->pageNoArray[leftNode->length]<<"\n";
 	//Unpin/save curr(root)
 	bufMgr->unPinPage(file, nodeId, true);
     }
@@ -210,7 +210,7 @@ int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, Page
 	leftNode = curr;
 	//Reuse the inputted page as the right page -> move values to the left page from right
 	leftPageNo = nodeId;
-	std::cout<<"left page no: "<<leftPageNo<<" right page no: "<<rightPageNo<<"\n";
+	//std::cout<<"left page no: "<<leftPageNo<<" right page no: "<<rightPageNo<<"\n";
 	//Set parameters for left/right nodes
 	rightNode->leaf = false;
 	leftNode->leaf = false;
@@ -262,7 +262,7 @@ int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, Page
             leftNode->keyArray[insertIndex] = my_key;
             leftNode->pageNoArray[insertIndex] = inputLeftId;
 	    //This shouldn't do anything - DELETE
-	    std::cout<<leftNode->pageNoArray[insertIndex+1]<<" should equal: "<<inputRightId<<"\n";
+	    //std::cout<<leftNode->pageNoArray[insertIndex+1]<<" should equal: "<<inputRightId<<"\n";
 	    leftNode->pageNoArray[insertIndex+1] = inputRightId;
             leftNode->length+=1;
         }
@@ -469,19 +469,19 @@ void BTreeIndex::splitRec(int pushedKey, PageId leftPageNo, PageId rightPageNo, 
     //can only get here once after the root is split
     //Base case 1:  Root is a leaf
     if(curr->leaf && currId==rootPageNum){
-	std::cout<<"\nBASE CASE 1: Root is a leaf and has been split\n";
+	//std::cout<<"\nBASE CASE 1: Root is a leaf and has been split\n";
 	curr->keyArray[0] = pushedKey;
 	curr->pageNoArray[0] = leftPageNo;
 	curr->pageNoArray[1] = rightPageNo;
 	curr->length = 1;
-	std::cout<<"Setting pageNo: "<<currId<<" with length: "<<curr->length<<"\n";
+	//std::cout<<"Setting pageNo: "<<currId<<" with length: "<<curr->length<<"\n";
 	curr->leaf = false;
         bufMgr->unPinPage(file, currId, currPage);
        	return;
     }
     //Base case 2: Root is not a leaf, but is full
     if(currId == rootPageNum && curr->length >= nodeOccupancy){
-	std::cout<<"\nBASE CASE 2: Root is not a leaf but is full\n";
+	//std::cout<<"\nBASE CASE 2: Root is not a leaf but is full\n";
     	//Split root node 
 	PageId splitLeftId;
 	PageId splitRightId;
@@ -490,9 +490,9 @@ void BTreeIndex::splitRec(int pushedKey, PageId leftPageNo, PageId rightPageNo, 
         curr->pageNoArray[0] = splitLeftId;
         curr->pageNoArray[1] = splitRightId;
 
-	std::cout<<"root left page no: "<<splitLeftId<<" right page no: "<<splitRightId<<"\n";
+	//std::cout<<"root left page no: "<<splitLeftId<<" right page no: "<<splitRightId<<"\n";
 	curr->length = 1;
-        std::cout<<"Setting pageNo: "<<currId<<" with length: "<<curr->length<<"\n";
+        //std::cout<<"Setting pageNo: "<<currId<<" with length: "<<curr->length<<"\n";
         curr->leaf = false;
 	bufMgr->unPinPage(file, currId, true);
         return;
@@ -533,18 +533,18 @@ void BTreeIndex::splitRec(int pushedKey, PageId leftPageNo, PageId rightPageNo, 
 	bufMgr->unPinPage(file, currId, true);
     }
     else{
-	std::cout<<"\nRecursive case: Split current node and push value,pageIds to parent\n";
+	//std::cout<<"\nRecursive case: Split current node and push value,pageIds to parent\n";
 	int nextPushedValue;
 	PageId splitLeftNo;
 	PageId splitRightNo;
 	//split and insert the current page into a pushed value, and a left/right PageId
 	nextPushedValue = splitNonLeaf(pushedKey, currId, leftPageNo, rightPageNo, splitLeftNo, splitRightNo);
 	bufMgr->unPinPage(file,currId,true);
-	std::cout<<"next pushed value: "<<nextPushedValue<<" splitLeftNo: "<<splitLeftNo<<" splitRightNo: "<<splitRightNo<<" currId: "<<currId<<"\n";
+	//std::cout<<"next pushed value: "<<nextPushedValue<<" splitLeftNo: "<<splitLeftNo<<" splitRightNo: "<<splitRightNo<<" currId: "<<currId<<"\n";
 	//Recursively push up the pushedValue from the split to the parent level, along with the PageIds to the now split current page
-	std::cout<<"Current traversal page no: "<<traversal[traversalIndex]<<"\n";
-	std::cout<<"current traversal index: "<<traversalIndex<<"\n";
-	std::cout<<"Next traversal page no: "<<traversal[traversalIndex-1]<<"\n";
+	//std::cout<<"Current traversal page no: "<<traversal[traversalIndex]<<"\n";
+	//std::cout<<"current traversal index: "<<traversalIndex<<"\n";
+	//std::cout<<"Next traversal page no: "<<traversal[traversalIndex-1]<<"\n";
 	splitRec(nextPushedValue, splitLeftNo, splitRightNo, traversalIndex - 1, traversal);
     }
 }
@@ -563,7 +563,7 @@ PageId BTreeIndex::traverseTree(const int key, std::vector<PageId>& traversal)
     // init traversal vector
     traversal.clear();
     if(root->length==1){
-	std::cout<<"root lenght one.  left page no: "<<root->pageNoArray[0]<<" right page no: "<<root->pageNoArray[1]<<"\n";
+	//std::cout<<"root lenght one.  left page no: "<<root->pageNoArray[0]<<" right page no: "<<root->pageNoArray[1]<<"\n";
     }
     // find leaf page L where key belongs
     if (root->leaf) {
@@ -698,7 +698,7 @@ void BTreeIndex::advanceScan()
             throw IndexScanCompletedException();
         }
         bufMgr->readPage(file, nextPageNum, currentPageData);
-        std::cout<<"new page no: "<<nextPageNum<<"\n";
+        //std::cout<<"new page no: "<<nextPageNum<<"\n";
     	// unpin old
         bufMgr->unPinPage(file, currentPageNum, false);
     	currentPageNum = nextPageNum;
