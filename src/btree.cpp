@@ -48,14 +48,13 @@ BTreeIndex::BTreeIndex(const std::string & relationName,
     std::string indexName = idxStr.str();
 
     // assign pages numbers in file
-    headerPageNum = 1;		//Change:  I found these to be 1 and 2, instead of 0 and 1.  
+    headerPageNum = 1;	
     rootPageNum = 2;		//Tested by deleting relA.0 file, running constructor and printing out allocated page numbers for header/root
 
     // assign file, create if needed
-    // file = new BlobFile(indexName, !File::exists(indexName));		Why is this always creating a new file if it didn't previously exist?
-    std::cout<<"Created blob file"<<"\n";
+    //std::cout<<"Created blob file"<<"\n";
     // if file has already been initialized
-    if (File::exists(indexName)) {			//ISN'T THIS ALWAYS TRUE???  THERE WAS A FILE CREATED TWO LINES AGO FOR THIS FILENAME???
+    if (File::exists(indexName)) {
         // load fields from file header page
         // this assumes the file header page is at pageid 0, as noted above
 	Page* headerPage;
@@ -235,9 +234,6 @@ int BTreeIndex::splitNonLeaf(int my_key, PageId nodeId, PageId inputLeftId, Page
     int insertIndex = -1;
     if(my_key < rightNode->keyArray[0]){
 
-        //Put this in a helper method.  I'm not sure how to define helper methods without
-        //adding the method to the btree.  There has to be a way..
-        //This is copied from splitRec as well -> remove?
         //Insert in the left leaf
         for(int i=0;i<leftNode->length;i++){
             if(my_key<leftNode->keyArray[i]){
@@ -547,7 +543,7 @@ void BTreeIndex::splitRec(int pushedKey, PageId leftPageNo, PageId rightPageNo, 
 	std::cout<<"next pushed value: "<<nextPushedValue<<" splitLeftNo: "<<splitLeftNo<<" splitRightNo: "<<splitRightNo<<" currId: "<<currId<<"\n";
 	//Recursively push up the pushedValue from the split to the parent level, along with the PageIds to the now split current page
 	std::cout<<"Current traversal page no: "<<traversal[traversalIndex]<<"\n";
-	std::cout<<"curreent traversal index: "<<traversalIndex<<"\n";
+	std::cout<<"current traversal index: "<<traversalIndex<<"\n";
 	std::cout<<"Next traversal page no: "<<traversal[traversalIndex-1]<<"\n";
 	splitRec(nextPushedValue, splitLeftNo, splitRightNo, traversalIndex - 1, traversal);
     }
